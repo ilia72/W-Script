@@ -54,7 +54,7 @@ NHold.Size=UDim2.new(0,260,1,-20) NHold.Position=UDim2.new(1,-270,0,10) NHold.Ba
 Instance.new("UIListLayout", NHold).Padding=UDim.new(0,6)
 local nI=0
 local function Notify(msg,dur,col)
-	dur=dur or 2.2 col=col or C.accent nI+=1
+	dur=dur or 2.2 col=col or C.accent nI=nI+1
 	local card=Instance.new("Frame",NHold)
 	card.Size=UDim2.new(1,0,0,28) card.BackgroundColor3=C.panel card.BackgroundTransparency=1 card.BorderSizePixel=0 card.LayoutOrder=nI
 	corner(card,4)
@@ -868,7 +868,7 @@ Toggle(tMisc,"fake name","FakeName",false,function(v) S.FakeName=v end)
 Toggle(tMisc,"auto pickup","AutoPickup",false,function(v) S.AutoPickup=v end)
 Toggle(tMisc,"fake latency","FakeLatency",false,function(v) S.FakeLatency=v end)
 section(tMisc,"actions")
-Btn(tMisc,"dash now", function() local r=root() local cam=workspace.CurrentCamera if r and cam then r.CFrame += cam.CFrame.LookVector*S.DashDist end end)
+Btn(tMisc,"dash now", function() local r=root() local cam=workspace.CurrentCamera 	if r and cam then r.CFrame = r.CFrame + cam.CFrame.LookVector*S.DashDist end end)
 Btn(tMisc,"give btools", function()
 	for _,bt in ipairs({Enum.BinType.Clone,Enum.BinType.Hammer,Enum.BinType.Grab}) do local h=Instance.new("HopperBin") h.BinType=bt h.Parent=LP.Backpack end
 	Notify("btools",2,C.green)
@@ -1096,7 +1096,7 @@ end)
 local fps,acc,xrayT=0,0,0
 
 RunService.RenderStepped:Connect(function(dt)
-	fps+=1 acc+=dt
+	fps=fps+1 acc=acc+dt
 	local t=tick()
 	local rainbow=Color3.fromHSV((t*0.2)%1,1,1)
 	local cam=workspace.CurrentCamera
@@ -1131,7 +1131,7 @@ RunService.RenderStepped:Connect(function(dt)
 	end
 
 	if r and h then
-		if S.CF and h.MoveDirection.Magnitude>0 then r.CFrame += h.MoveDirection*(S.CFVal/10) end
+		if S.CF and h.MoveDirection.Magnitude>0 then r.CFrame = r.CFrame + h.MoveDirection*(S.CFVal/10) end
 		local flyRoot, doFly = r, S.Fly
 		if S.VehFly and h.SeatPart then doFly=true flyRoot=h.SeatPart.AssemblyRootPart or h.SeatPart end
 		if doFly and cam then
@@ -1155,7 +1155,7 @@ RunService.RenderStepped:Connect(function(dt)
 			end
 		end
 		if S.FakeLag then
-			S._lagT += dt
+			S._lagT = S._lagT + dt
 			if S._lagT >= S.LagSec then S._lagT=0 r.Anchored=not r.Anchored end
 		end
 		if S.Ghost then
@@ -1562,7 +1562,7 @@ RunService.Heartbeat:Connect(function(dt)
 		end
 	end
 	if S.XRay then
-		xrayT+=dt
+		xrayT = xrayT + dt
 		if xrayT>0.35 then
 			xrayT=0
 			local cam=workspace.CurrentCamera
@@ -1612,7 +1612,7 @@ UIS.InputBegan:Connect(function(input, gp)
 	if gp then return end
 	if key==Registry.Binds.Dash then
 		local r=root() local cam=workspace.CurrentCamera
-		if r and cam then r.CFrame += cam.CFrame.LookVector * S.DashDist Notify("dash",0.8,C.green) end
+		if r and cam then r.CFrame = r.CFrame + cam.CFrame.LookVector * S.DashDist Notify("dash",0.8,C.green) end
 		return
 	end
 	for bindId, toggleId in pairs(bindMap) do
