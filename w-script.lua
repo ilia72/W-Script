@@ -87,6 +87,7 @@ local S = {
 
 	ESP=false, Box=false, NameESP=false, HP=false, Tracer=false, RGBEsp=false,
 	EspColor = Color3.fromRGB(255,75,75),
+	Skeleton=false, DistanceESP=false, AntiAim=false, AntiAimYaw=180, Invisible=false, NameHP=false,
 
 	Halo=false, Hat=false, Trail=false, Fire=false, Sparks=false, FF=false,
 	FXColor = Color3.fromRGB(110,130,240),
@@ -249,10 +250,23 @@ local function hardOff(id)
 	elseif id=="WS" or id=="JP" then resetSpeed()
 	elseif id=="Noclip" then resetNoclip()
 	elseif id=="Ghost" or id=="FF" then resetGhostFF()
+	elseif id=="Invisible" then
+		local c=char() if c then for _,p in ipairs(c:GetDescendants()) do if p:IsA("BasePart") then p.LocalTransparencyModifier=0 end end end
+	end
 	elseif id=="Spin" or id=="Fling" then local r=root() if r then r.AssemblyAngularVelocity=Vector3.zero end
 	elseif id=="FakeLag" then local r=root() if r then r.Anchored=false end
 	elseif id=="Hitbox" or id=="Reach" then resetHit()
-	elseif id=="ESP" or id=="Box" or id=="NameESP" or id=="HP" or id=="Tracer" then clearESP()
+	elseif id=="ESP" or id=="Box" or id=="NameESP" or id=="HP" or id=="Tracer" or id=="Skeleton" or id=="DistanceESP" or id=="NameHP" then
+		for _,obj in ipairs(workspace:GetDescendants()) do
+			if obj:IsA("Line") then obj:Destroy() end
+		end
+		for _,p in ipairs(Players:GetPlayers()) do
+			if p.Character then
+				local df=p.Character:FindFirstChild("W_DIST")
+				if df then df:Destroy() end
+			end
+		end
+		clearESP()
 	elseif id=="Halo" or id=="Hat" or id=="Trail" or id=="Fire" or id=="Sparks" then clearFX()
 	elseif id=="Fullbright" or id=="Disco" or id=="AutoTime" or id=="NoFog" then resetLight()
 	elseif id=="XRay" then resetXray()
@@ -685,6 +699,12 @@ Toggle(tVis,"name esp","NameESP",false,function(v) S.NameESP=v end)
 Toggle(tVis,"health bar","HP",false,function(v) S.HP=v end)
 Toggle(tVis,"tracers","Tracer",false,function(v) S.Tracer=v end)
 Toggle(tVis,"rainbow esp","RGBEsp",false,function(v) S.RGBEsp=v end)
+Toggle(tVis,"skeleton esp","Skeleton",false,function(v) S.Skeleton=v end)
+Toggle(tVis,"distance esp","DistanceESP",false,function(v) S.DistanceESP=v end)
+Toggle(tVis,"anti aim","AntiAim",false,function(v) S.AntiAim=v end)
+Slider(tVis,"anti aim yaw",0,360,180,function(v) S.AntiAimYaw=v end)
+Toggle(tVis,"invisible","Invisible",false,function(v) S.Invisible=v end)
+Toggle(tVis,"name with hp","NameHP",false,function(v) S.NameHP=v end)
 section(tVis,"body fx  (RMB = color)")
 Toggle(tVis,"neon halo","Halo",false,function(v) S.Halo=v end)
 Toggle(tVis,"china hat","Hat",false,function(v) S.Hat=v end)
@@ -1107,6 +1127,10 @@ RunService.RenderStepped:Connect(function(dt)
 			end
 			if best then cam.CFrame=CFrame.new(cam.CFrame.Position,best.Position) end
 		end
+		if S.AntiAim and r then
+			local yaw = math.rad(S.AntiAimYaw)
+			cam.CFrame = CFrame.new(cam.CFrame.Position) * CFrame.Angles(0, yaw, 0)
+		end
 	end
 
 	if S.Disco then Lighting.Ambient=rainbow Lighting.OutdoorAmbient=rainbow Lighting.ColorShift_Top=rainbow end
@@ -1115,6 +1139,25 @@ RunService.RenderStepped:Connect(function(dt)
 
 	local ecol = S.RGBEsp and rainbow or S.EspColor
 	if S.Tracer then TracerFolder:ClearAllChildren() end
+	if S.Skeleton then
+		for _,obj in ipairs(workspace:GetDescendants()) do
+			if obj:IsA("Line") then obj:Destroy() end
+		end
+	end
+	for _,p in ipairs(Players:GetPlayers()) do
+		if p~=LP then
+			local pc=p.Character
+			if pc then
+				local df=pc:FindFirstChild("W_DIST")
+				if df and not S.DistanceESP then df:Destroy() end
+			end
+		end
+	end
+	if not S.Invisible and c then
+		for _,p in ipairs(c:GetDescendants()) do
+			if p:IsA("BasePart") then p.LocalTransparencyModifier=0 end
+		end
+	end
 
 	for _,p in ipairs(Players:GetPlayers()) do
 		if p~=LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
@@ -1157,6 +1200,63 @@ RunService.RenderStepped:Connect(function(dt)
 				local beam=TracerFolder:FindFirstChild(p.Name) or Instance.new("Beam",TracerFolder)
 				beam.Name=p.Name beam.Attachment0=a0 beam.Attachment1=a1 beam.Width0=0.05 beam.Width1=0.05 beam.FaceCamera=true beam.LightEmission=1
 				beam.Color=ColorSequence.new(ecol)
+			end
+			if S.Skeleton and pc then
+				local bones = {"Head","UpperTorso","LowerTorso","LeftArm","RightArm","LeftLeg","RightLeg"}
+				local positions = {}
+				for _,boneName in ipairs(bones) do
+					local bone = pc:FindFirstChild(boneName)
+					if bone then positions[boneName] = bone.Position end
+				end
+				local connections = {
+					{"Head","UpperTorso"},{"UpperTorso","LowerTorso"},
+					{"UpperTorso","LeftArm"},{"UpperTorso","RightArm"},
+					{"LowerTorso","LeftLeg"},{"LowerTorso","RightLeg"},
+				}
+				for _,conn in ipairs(connections) do
+					local from, to = positions[conn[1]], positions[conn[2]]
+					if from and to then
+						local ok
+						pcall(function()
+							local line = Instance.new("Line")
+							line.From = from
+							line.To = to
+							line.Color = ecol
+							line.Thickness = 2
+							line.Parent = workspace
+						end)
+					end
+				end
+			end
+			if S.DistanceESP and hrp then
+				local dist = math.floor((r.Position - hrp.Position).Magnitude)
+				local df = pc:FindFirstChild("W_DIST")
+				if not df then
+					df = Instance.new("BillboardGui",pc) df.Name="W_DIST" df.Adornee=hrp df.Size=UDim2.new(0,80,0,18) df.StudsOffset=Vector3.new(0,4,0) df.AlwaysOnTop=true
+					local dl = Instance.new("TextLabel",df) dl.Size=UDim2.new(1,0,1,0) dl.BackgroundTransparency=1 dl.Font=Enum.Font.Code dl.TextSize=12 dl.TextColor3=C.orange
+				end
+				local dl = df:FindFirstChildOfClass("TextLabel")
+				if dl then dl.Text = dist .. "m" end
+			end
+			if S.NameHP and head and ph then
+				local nm=pc:FindFirstChild("W_NAME")
+				if not nm then
+					nm=Instance.new("BillboardGui",pc) nm.Name="W_NAME" nm.Adornee=head nm.Size=UDim2.new(0,160,0,18) nm.StudsOffset=Vector3.new(0,2.3,0) nm.AlwaysOnTop=true
+					local tl=Instance.new("TextLabel",nm) tl.Size=UDim2.new(1,0,1,0) tl.BackgroundTransparency=1 tl.Font=Enum.Font.Code tl.TextSize=12 tl.TextStrokeTransparency=0.4 tl.Text=p.DisplayName
+				end
+				local tl=nm:FindFirstChildOfClass("TextLabel")
+				if tl then
+					local pct=math.clamp(ph.Health/math.max(ph.MaxHealth,1),0,1)
+					tl.Text = p.DisplayName .. " [" .. math.floor(pct*100) .. "%]"
+					tl.TextColor3 = Color3.fromRGB(255*(1-pct),220*pct,60)
+				end
+			end
+			if S.Invisible then
+				for _,part in ipairs(pc:GetDescendants()) do
+					if part:IsA("BasePart") then
+						part.LocalTransparencyModifier = 1
+					end
+				end
 			end
 		end
 	end
