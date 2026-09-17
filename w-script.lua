@@ -1146,7 +1146,7 @@ RunService.RenderStepped:Connect(function(dt)
 		if S.Float and not doFly then
 			local v=r.AssemblyLinearVelocity r.AssemblyLinearVelocity=Vector3.new(v.X,0.55,v.Z)
 		end
-		if S.Spin then r.CFrame *= CFrame.Angles(0,math.rad(S.SpinSpd),0) end
+		if S.Spin then r.CFrame = r.CFrame * CFrame.Angles(0,math.rad(S.SpinSpd),0) end
 		if S.Fling then r.AssemblyAngularVelocity=Vector3.new(1e5,1e5,1e5) end
 		if S.Spider then
 			local rp=RaycastParams.new() rp.FilterDescendantsInstances={c} rp.FilterType=Enum.RaycastFilterType.Exclude
@@ -1193,7 +1193,7 @@ RunService.RenderStepped:Connect(function(dt)
 			forceVisibleCharacter()
 		end
 		if S.Bob and h and h.MoveDirection.Magnitude>0 and not S.Fly then
-			local bt=t*11 cam.CFrame *= CFrame.new(math.sin(bt)*0.07, math.abs(math.cos(bt))*0.07, 0)
+			local bt=t*11 cam.CFrame = cam.CFrame * CFrame.new(math.sin(bt)*0.07, math.abs(math.cos(bt))*0.07, 0)
 		end
 		if S.Aimbot and r then
 			local best,bd=nil,S.AimRange
@@ -1298,7 +1298,7 @@ RunService.RenderStepped:Connect(function(dt)
 	end
 	if S.ScreenGlitch then
 		local cam = workspace.CurrentCamera
-		if cam then cam.CFrame *= CFrame.new(0,0,0) * CFrame.Angles(0, t*50, 0) end
+		if cam then cam.CFrame = cam.CFrame * CFrame.new(0,0,0) * CFrame.Angles(0, t*50, 0) end
 	end
 	if S.ScreenChroma and cam then
 		-- placeholder: would require Drawing API or GUI overlay for chromatic aberration
