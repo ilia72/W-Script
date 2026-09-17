@@ -803,6 +803,212 @@ end)
 tabs[1].page.Visible=true tabs[1].btn.BackgroundTransparency=0.15 tabs[1].btn.TextColor3=C.text
 
 -- =============================================================================
+-- LOADER MENU (config load/save/delete GUI)
+-- =============================================================================
+local LoaderGui = Instance.new("ScreenGui")
+LoaderGui.Name = "WScriptLoader"
+LoaderGui.ResetOnSpawn = false
+LoaderGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+LoaderGui.Parent = guiParent
+
+local lopen = false
+
+local LMain = Instance.new("Frame", LoaderGui)
+LMain.Size = UDim2.new(0, 420, 0, 380)
+LMain.Position = UDim2.new(0.5, -210, 0.5, -190)
+LMain.BackgroundColor3 = C.bg
+LMain.BorderSizePixel = 0
+LMain.Active = true
+LMain.ClipsDescendants = true
+corner(LMain, 8)
+LMain.Visible = false
+
+local lnoise = Instance.new("ImageLabel", LMain)
+lnoise.Size = UDim2.new(1, 0, 1, 0)
+lnoise.BackgroundTransparency = 1
+lnoise.ImageTransparency = 0.94
+lnoise.ScaleType = Enum.ScaleType.Tile
+lnoise.TileSize = UDim2.new(0, 48, 0, 48)
+lnoise.Image = "rbxassetid://6372755229"
+lnoise.ZIndex = 0
+
+local LTop = Instance.new("Frame", LMain)
+LTop.Size = UDim2.new(1, 0, 0, 30)
+LTop.BackgroundColor3 = C.panel
+LTop.BorderSizePixel = 0
+corner(LTop, 8)
+drag(LMain, LTop)
+
+local LTitle = Instance.new("TextLabel", LTop)
+LTitle.Size = UDim2.new(1, -40, 1, 0)
+LTitle.Position = UDim2.new(0, 12, 0, 0)
+LTitle.BackgroundTransparency = 1
+LTitle.Text = "w-script  //  loader"
+LTitle.Font = Enum.Font.Code
+LTitle.TextSize = 13
+LTitle.TextColor3 = C.dim
+LTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+local LXBtn = Instance.new("TextButton", LTop)
+LXBtn.Size = UDim2.new(0, 30, 0, 30)
+LXBtn.Position = UDim2.new(1, -30, 0, 0)
+LXBtn.BackgroundTransparency = 1
+LXBtn.Text = "x"
+LXBtn.Font = Enum.Font.Code
+LXBtn.TextSize = 16
+LXBtn.TextColor3 = C.dim
+LXBtn.Modal = true
+
+local LList = Instance.new("ScrollingFrame", LMain)
+LList.Size = UDim2.new(1, -20, 0, 240)
+LList.Position = UDim2.new(0, 10, 0, 40)
+LList.BackgroundColor3 = C.elem
+LList.BorderSizePixel = 0
+LList.ScrollBarThickness = 3
+LList.ScrollBarImageColor3 = C.off
+LList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+LList.CanvasSize = UDim2.new()
+Instance.new("UIListLayout", LList).Padding = UDim.new(0, 4)
+
+local LStatus = Instance.new("TextLabel", LMain)
+LStatus.Size = UDim2.new(1, -20, 0, 18)
+LStatus.Position = UDim2.new(0, 10, 0, 290)
+LStatus.BackgroundTransparency = 1
+LStatus.Font = Enum.Font.Code
+LStatus.TextSize = 11
+LStatus.TextColor3 = C.dim
+LStatus.TextXAlignment = Enum.TextXAlignment.Left
+LStatus.Text = "no configs"
+
+local LSaveFrame = Instance.new("Frame", LMain)
+LSaveFrame.Size = UDim2.new(1, -20, 0, 40)
+LSaveFrame.Position = UDim2.new(0, 10, 1, -50)
+LSaveFrame.BackgroundColor3 = C.elem
+LSaveFrame.BorderSizePixel = 0
+corner(LSaveFrame, 5)
+
+local LSaveInput = Instance.new("TextBox", LSaveFrame)
+LSaveInput.Size = UDim2.new(1, -100, 0, 28)
+LSaveInput.Position = UDim2.new(0, 10, 0, 6)
+LSaveInput.BackgroundColor3 = C.bg
+LSaveInput.PlaceholderText = "config name..."
+LSaveInput.Font = Enum.Font.Code
+LSaveInput.TextSize = 12
+LSaveInput.TextColor3 = C.text
+LSaveInput.PlaceholderColor3 = C.dim
+
+local LSaveBtn = Instance.new("TextButton", LSaveFrame)
+LSaveBtn.Size = UDim2.new(0, 80, 0, 28)
+LSaveBtn.Position = UDim2.new(1, -90, 0, 6)
+LSaveBtn.BackgroundColor3 = C.accent
+LSaveBtn.Text = "Save"
+LSaveBtn.Font = Enum.Font.Code
+LSaveBtn.TextSize = 12
+LSaveBtn.TextColor3 = C.bg
+corner(LSaveBtn, 5)
+
+local LRefreshBtn = Instance.new("TextButton", LMain)
+LRefreshBtn.Size = UDim2.new(0, 80, 0, 24)
+LRefreshBtn.Position = UDim2.new(1, -90, 1, -55)
+LRefreshBtn.BackgroundColor3 = C.elem
+LRefreshBtn.BorderSizePixel = 0
+LRefreshBtn.Text = "Refresh"
+LRefreshBtn.Font = Enum.Font.Code
+LRefreshBtn.TextSize = 11
+LRefreshBtn.TextColor3 = C.text
+corner(LRefreshBtn, 4)
+
+local function refreshList()
+	for _, child in ipairs(LList:GetChildren()) do
+		if child:IsA("Frame") then child:Destroy() end
+	end
+	if not canFS() then
+		LStatus.Text = "no filesystem"
+		return
+	end
+	ensureFolder()
+	local configs = listConfigs()
+	if #configs == 0 then
+		LStatus.Text = "no configs saved"
+		return
+	end
+	LStatus.Text = "# configs: " .. #configs
+	table.sort(configs)
+	for i, name in ipairs(configs) do
+		local card = Instance.new("Frame", LList)
+		card.Size = UDim2.new(1, 0, 0, 32)
+		card.BackgroundColor3 = C.elem
+		card.BorderSizePixel = 0
+		card.LayoutOrder = i
+		corner(card, 5)
+
+		local nm = Instance.new("TextLabel", card)
+		nm.Size = UDim2.new(1, -100, 1, 0)
+		nm.Position = UDim2.new(0, 10, 0, 0)
+		nm.BackgroundTransparency = 1
+		nm.Font = Enum.Font.Code
+		nm.TextSize = 12
+		nm.TextColor3 = C.text
+		nm.TextXAlignment = Enum.TextXAlignment.Left
+		nm.Text = name
+
+		local loadBtn = Instance.new("TextButton", card)
+		loadBtn.Size = UDim2.new(0, 50, 0, 22)
+		loadBtn.Position = UDim2.new(1, -105, 0.5, -11)
+		loadBtn.BackgroundColor3 = C.green
+		loadBtn.Text = "Load"
+		loadBtn.Font = Enum.Font.Code
+		loadBtn.TextSize = 11
+		loadBtn.TextColor3 = C.bg
+		corner(loadBtn, 4)
+
+		local delBtn = Instance.new("TextButton", card)
+		delBtn.Size = UDim2.new(0, 50, 0, 22)
+		delBtn.Position = UDim2.new(1, -50, 0.5, -11)
+		delBtn.BackgroundColor3 = C.red
+		delBtn.Text = "Del"
+		delBtn.Font = Enum.Font.Code
+		delBtn.TextSize = 11
+		delBtn.TextColor3 = C.bg
+		corner(delBtn, 4)
+
+		loadBtn.MouseButton1Click:Connect(function()
+			loadConfig(name)
+			LStatus.Text = "loaded: " .. name
+		end)
+		delBtn.MouseButton1Click:Connect(function()
+			if isfile and isfile(CFG_FOLDER .. "/" .. name .. ".json") then
+				os.remove(CFG_FOLDER .. "/" .. name .. ".json")
+				refreshList()
+				LStatus.Text = "deleted: " .. name
+			end
+		end)
+	end
+end
+
+LSaveBtn.MouseButton1Click:Connect(function()
+	local name = LSaveInput.Text:gsub("^%s+", ""):gsub("%s+$", "")
+	if name == "" then Notify("enter name", 2, C.red) return end
+	saveConfig(name)
+	LSaveInput.Text = ""
+	refreshList()
+end)
+
+LRefreshBtn.MouseButton1Click:Connect(function()
+	refreshList()
+	Notify("refreshed", 1.5, C.accent)
+end)
+
+UIS.InputBegan:Connect(function(input, gp)
+	if gp then return end
+	if input.KeyCode == Enum.KeyCode.Insert then
+		lopen = not lopen
+		LMain.Visible = lopen
+		if lopen then refreshList() end
+	end
+end)
+
+-- =============================================================================
 -- MAIN LOOPS
 -- =============================================================================
 local fps,acc,xrayT=0,0,0
