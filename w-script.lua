@@ -268,7 +268,7 @@ local function hardOff(id)
 		if skeletonDraw then
 			for _,lines in pairs(skeletonDraw) do
 				for _,line in pairs(lines) do
-					if line then line:Remove() end
+					if line then pcall(function() line:Remove() end) end
 				end
 			end
 			skeletonDraw = {}
@@ -1313,7 +1313,7 @@ RunService.RenderStepped:Connect(function(dt)
 		if skeletonDraw then
 			for _,lines in pairs(skeletonDraw) do
 				for _,line in pairs(lines) do
-					if line then line:Remove() end
+					if line then pcall(function() line:Remove() end) end
 				end
 			end
 			skeletonDraw = {}
@@ -1399,16 +1399,22 @@ RunService.RenderStepped:Connect(function(dt)
 						if sf.Z > 0 and st.Z > 0 then
 							local key = conn[1].."_"..conn[2]
 							local line = skeletonDraw[p.Name][key]
-							if not line then
-								line = Drawing.new("Line")
-								line.Thickness = 2
-								skeletonDraw[p.Name][key] = line
+							if not line and Drawing then
+								local ok, result = pcall(function()
+									return Drawing.new("Line")
+								end)
+								if ok and result then
+									line = result
+									line.Thickness = 2
+									skeletonDraw[p.Name][key] = line
+								end
 							end
-							line.Color = ecol
-							line.From = Vector2.new(sf.X, sf.Y)
-							line.To = Vector2.new(st.X, st.Y)
-							line.Visible = true
-						end
+							if line then
+								line.Color = ecol
+								line.From = Vector2.new(sf.X, sf.Y)
+								line.To = Vector2.new(st.X, st.Y)
+								line.Visible = true
+							end
 					end
 				end
 			end
@@ -1491,7 +1497,12 @@ RunService.Stepped:Connect(function()
 		if h then h.WalkSpeed = Def.WS end
 	end
 	if S.AntiKick and c then
-		pcall(function() LP:Kick() end)
+		for _,p in ipairs(Players:GetPlayers()) do
+			if p~=LP and p.Character then
+				local h = p.Character:FindFirstChildOfClass("Humanoid")
+				if h then h.PlatformStand = false end
+			end
+		end
 	end
 	if S.Camp and r then
 		local cam = workspace.CurrentCamera
@@ -1515,11 +1526,7 @@ RunService.Stepped:Connect(function()
 		end
 	end
 	if S.FakeName and c then
-		local nameLabel = c:FindFirstChild("NameDisplay") or Instance.new("BillboardGui")
-		for _,p in ipairs(c:GetDescendants()) do
-			if p:IsA("BillboardGui") and p.Name == "NameDisplay" then
-			end
-		end
+		pcall(function() LP.Name = "x" .. math.random(1000,9999) end)
 	end
 	if S.FakeLatency and r then
 		r.Anchored = not r.Anchored
