@@ -252,7 +252,6 @@ local function hardOff(id)
 	elseif id=="Ghost" or id=="FF" then resetGhostFF()
 	elseif id=="Invisible" then
 		local c=char() if c then for _,p in ipairs(c:GetDescendants()) do if p:IsA("BasePart") then p.LocalTransparencyModifier=0 end end end
-	end
 	elseif id=="Spin" or id=="Fling" then local r=root() if r then r.AssemblyAngularVelocity=Vector3.zero end
 	elseif id=="FakeLag" then local r=root() if r then r.Anchored=false end
 	elseif id=="Hitbox" or id=="Reach" then resetHit()
