@@ -78,9 +78,11 @@ local S = {
 	WS=false, WSVal=50, JP=false, JPVal=100, CF=false, CFVal=3,
 	InfJump=false, Bhop=false, Spider=false, Noclip=false, Ghost=false,
 	Spin=false, SpinSpd=25, ClickTP=false, DashDist=25,
-	FakeLag=false, LagSec=0.12, _lagT=0,
+ 	FakeLag=false, LagSec=0.12, _lagT=0, AutoStrafe=false, EdgeBug=false, EdgeJump=false,
 
 	Aimbot=false, SilentAim=false, AimRange=250, AimPart="Head", FOVCircle=false, FOVSize=120,
+	TriggerBot=false, TriggerDelay=0, TriggerTarget="Head", AutoShoot=false, WallBang=false,
+	Resolver=false, Prediction=false, PredictionValue=0.08,
 	Hitbox=false, HitSize=12, Reach=false, Fling=false, AntiFling=false,
 
 	FOV=false, FOVVal=100, ThirdP=false, ThirdDist=14, Bob=false,
@@ -88,12 +90,20 @@ local S = {
 	ESP=false, Box=false, NameESP=false, HP=false, Tracer=false, RGBEsp=false,
 	EspColor = Color3.fromRGB(255,75,75),
 	Skeleton=false, DistanceESP=false, AntiAim=false, AntiAimYaw=180, Invisible=false, NameHP=false,
+	BoxLines=false,
 
 	Halo=false, Hat=false, Trail=false, Fire=false, Sparks=false, FF=false,
 	FXColor = Color3.fromRGB(110,130,240),
+	TopInfo=false, BottomInfo=false,
 
 	Fullbright=false, Disco=false, AutoTime=false, NoFog=false, XRay=false,
-	NeonWorld=false, PlasticWorld=false,
+	NeonWorld=false, PlasticWorld=false, CustomSky=false, SkyColor=Color3.fromRGB(135,206,235),
+	WeatherRain=false, WeatherSnow=false, TerrainColor=Color3.fromRGB(139,69,19),
+	ScreenGlitch=false, ScreenChroma=false, ScreenVignette=false,
+
+	Camp=false, CampDist=12, AntiTeleport=false, AntiKick=false, AutoPickup=false,
+	AutoSteal=false, AutoStealDelay=0.2, FakeName=false, FakeLatency=false,
+	_triggerT=0, _stealT=0, _triggerDelay=0,
 
 	RGBUI=false, Cross=false, WM=false, Stats=false, BindList=true, AntiAFK=true,
 }
@@ -260,7 +270,7 @@ local function hardOff(id)
 		if skeletonDraw then
 			for _,lines in pairs(skeletonDraw) do
 				for _,line in pairs(lines) do
-					if line then line:Remove() end
+						if line then pcall(function() line:Remove() end) end
 				end
 			end
 			skeletonDraw = {}
@@ -276,7 +286,21 @@ local function hardOff(id)
 	elseif id=="Fullbright" or id=="Disco" or id=="AutoTime" or id=="NoFog" then resetLight()
 	elseif id=="XRay" then resetXray()
 	elseif id=="NeonWorld" or id=="PlasticWorld" then resetMats()
-	elseif id=="SilentAim" or id=="Aimbot" or id=="FOVCircle" then end
+ 	elseif id=="SilentAim" or id=="Aimbot" or id=="FOVCircle" then end
+	elseif id=="TriggerBot" or id=="AutoShoot" or id=="WallBang" or id=="Resolver" or id=="Prediction" then end
+	elseif id=="CustomSky" or id=="WeatherRain" or id=="WeatherSnow" then
+		local sky = Lighting:FindFirstChildOfClass("Sky")
+		if sky then sky:Destroy() end
+		resetLight()
+	elseif id=="ScreenGlitch" or id=="ScreenChroma" or id=="ScreenVignette" then
+		if ScreenFX then ScreenFX:Destroy() ScreenFX=nil end
+	elseif id=="Camp" then end
+	elseif id=="AntiTeleport" then local h=hum() if h then h.WalkSpeed=Def.WS end end
+	elseif id=="AutoSteal" or id=="FakeLatency" then local r=root() if r then r.Anchored=false end end
+	elseif id=="FakeName" then end
+	elseif id=="AutoPickup" then end
+	elseif id=="BoxLines" then if BoxLineFolder then BoxLineFolder:ClearAllChildren() end
+	elseif id=="TopInfo" or id=="BottomInfo" then end
 end
 
 -- =============================================================================
@@ -675,6 +699,10 @@ Slider(tMove,"jump value",50,400,100,function(v) S.JPVal=v end)
 Toggle(tMove,"infinite jump","InfJump",false,function(v) S.InfJump=v end)
 Toggle(tMove,"bunny hop","Bhop",false,function(v) S.Bhop=v end)
 Toggle(tMove,"spider climb","Spider",false,function(v) S.Spider=v end)
+section(tMove,"advanced")
+Toggle(tMove,"auto-strafe","AutoStrafe",false,function(v) S.AutoStrafe=v end)
+Toggle(tMove,"edge bug","EdgeBug",false,function(v) S.EdgeBug=v end)
+Toggle(tMove,"edge jump","EdgeJump",false,function(v) S.EdgeJump=v end)
 
 section(tExp,"physics")
 Toggle(tExp,"noclip","Noclip",false,function(v) S.Noclip=v end)
@@ -697,6 +725,14 @@ Slider(tCombat,"size",2,60,12,function(v) S.HitSize=v end)
 section(tCombat,"troll")
 Toggle(tCombat,"fling aura","Fling",false,function(v) S.Fling=v end)
 Toggle(tCombat,"anti fling","AntiFling",false,function(v) S.AntiFling=v end)
+section(tCombat,"legit")
+Toggle(tCombat,"trigger bot","TriggerBot",false,function(v) S.TriggerBot=v end)
+Slider(tCombat,"trigger delay",0,30,0,function(v) S.TriggerDelay=v end)
+Toggle(tCombat,"auto shoot","AutoShoot",false,function(v) S.AutoShoot=v end)
+Toggle(tCombat,"wallbang","WallBang",false,function(v) S.WallBang=v end)
+Toggle(tCombat,"resolver","Resolver",false,function(v) S.Resolver=v end)
+Toggle(tCombat,"prediction","Prediction",false,function(v) S.Prediction=v end)
+Slider(tCombat,"prediction %",0,100,8,function(v) S.PredictionValue=v/1000 end)
 
 section(tVis,"esp  (RMB = color)")
 Toggle(tVis,"highlight esp","ESP",false,function(v) S.ESP=v end)
@@ -719,6 +755,16 @@ Toggle(tVis,"fire","Fire",false,function(v) S.Fire=v end)
 Toggle(tVis,"sparkles","Sparks",false,function(v) S.Sparks=v end)
 Toggle(tVis,"forcefield","FF",false,function(v) S.FF=v end)
 
+section(tVis,"draw")
+Toggle(tVis,"box lines","BoxLines",false,function(v) S.BoxLines=v end)
+Toggle(tVis,"top info","TopInfo",false,function(v) S.TopInfo=v end)
+Toggle(tVis,"bottom info","BottomInfo",false,function(v) S.BottomInfo=v end)
+
+section(tVis,"fx")
+Toggle(tVis,"glitch","ScreenGlitch",false,function(v) S.ScreenGlitch=v end)
+Toggle(tVis,"chroma","ScreenChroma",false,function(v) S.ScreenChroma=v end)
+Toggle(tVis,"vignette","ScreenVignette",false,function(v) S.ScreenVignette=v end)
+
 section(tWorld,"lighting")
 Toggle(tWorld,"fullbright","Fullbright",false,function(v)
 	S.Fullbright=v
@@ -731,6 +777,12 @@ Toggle(tWorld,"xray","XRay",false,function(v) S.XRay=v end)
 section(tWorld,"map")
 Toggle(tWorld,"neon world","NeonWorld",false,function(v) S.NeonWorld=v if v then S.PlasticWorld=false end end)
 Toggle(tWorld,"plastic world","PlasticWorld",false,function(v) S.PlasticWorld=v if v then S.NeonWorld=false end end)
+Toggle(tWorld,"custom sky","CustomSky",false,function(v) S.CustomSky=v end)
+Slider(tWorld,"sky color","skyColor",0,65535,135*1000000+206*1000+235,function(v) S.SkyColor=Color3.fromRGB(math.floor(v/1000000)%256, math.floor(v/1000)%256, v%256) end)
+
+section(tWorld,"weather")
+Toggle(tWorld,"rain","WeatherRain",false,function(v) S.WeatherRain=v end)
+Toggle(tWorld,"snow","WeatherSnow",false,function(v) S.WeatherSnow=v end)
 
 section(tCam,"camera")
 Toggle(tCam,"custom fov","FOV",false,function(v) S.FOV=v if v then local cam=workspace.CurrentCamera if cam then Def.FOV=cam.FieldOfView end end end)
@@ -810,7 +862,9 @@ Toggle(tMisc,"rgb ui","RGBUI",false,function(v) S.RGBUI=v if not v then setAccen
 Toggle(tMisc,"watermark","WM",false,function(v) S.WM=v WM.Visible=v end)
 Toggle(tMisc,"stats","Stats",false,function(v) S.Stats=v Stats.Visible=v end)
 Toggle(tMisc,"crosshair","Cross",false,function(v) S.Cross=v Cross.Visible=v end)
-Toggle(tMisc,"anti afk","AntiAFK",true,function(v) S.AntiAFK=v end)
+  Toggle(tMisc,"anti afk","AntiAFK",true,function(v) S.AntiAFK=v end)
+Toggle(tMisc,"anti kick","AntiKick",false,function(v) S.AntiKick=v end)
+Toggle(tMisc,"anti teleport","AntiTeleport",false,function(v) S.AntiTeleport=v end)
 section(tMisc,"actions")
 Btn(tMisc,"dash now", function() local r=root() local cam=workspace.CurrentCamera if r and cam then r.CFrame += cam.CFrame.LookVector*S.DashDist end end)
 Btn(tMisc,"give btools", function()
@@ -819,6 +873,13 @@ Btn(tMisc,"give btools", function()
 end)
 Btn(tMisc,"rejoin", function() TeleportService:TeleportToPlaceInstance(game.PlaceId,game.JobId,LP) end)
 Btn(tMisc,"server hop", function() TeleportService:Teleport(game.PlaceId,LP) end)
+Toggle(tMisc,"camp",false,function(v) S.Camp=v end)
+Slider(tMisc,"camp dist",8,20,12,function(v) S.CampDist=v end)
+Toggle(tMisc,"auto steal","AutoSteal",false,function(v) S.AutoSteal=v end)
+Slider(tMisc,"steal delay",0.1,2,0.2,function(v) S.AutoStealDelay=v end)
+Toggle(tMisc,"fake name","FakeName",false,function(v) S.FakeName=v end)
+Toggle(tMisc,"fake latency","FakeLatency",false,function(v) S.FakeLatency=v end)
+Toggle(tMisc,"auto pickup","AutoPickup",false,function(v) S.AutoPickup=v end)
 section(tMisc,"panic")
 Btn(tMisc,"DISABLE ALL", function()
 	for _,tog in pairs(Registry.Toggles) do if tog.get() then tog.set(false,false) end end
@@ -1105,6 +1166,22 @@ RunService.RenderStepped:Connect(function(dt)
 		if S.Ghost then
 			for _,p in ipairs(c:GetDescendants()) do if p:IsA("BasePart") and p.Name~="HumanoidRootPart" then p.LocalTransparencyModifier=0.75 end end
 		end
+		if S.AutoStrafe and h and cam and not doFly then
+			local moveDir = h.MoveDirection
+			if moveDir.Magnitude > 0 then
+				local look = cam.CFrame.LookVector
+				local right = cam.CFrame.RightVector
+				local vel = r.AssemblyLinearVelocity
+				local f = moveDir:Dot(look)
+				local s = moveDir:Dot(right)
+				r.CFrame = CFrame.new(r.Position, r.Position + look*f + right*s + Vector3.new(0,vel.Y,0))
+			end
+		end
+		if S.EdgeBug and h then
+			local vv = r.AssemblyLinearVelocity
+			if math.abs(vv.Y) > 120 then r.Velocity = Vector3.new(0,0,0) end
+		end
+		if S.EdgeJump and h and h.FloorMaterial ~= Enum.Material.Air then h.Jump = true end
 	end
 
 	if cam then
@@ -1137,11 +1214,86 @@ RunService.RenderStepped:Connect(function(dt)
 			local yaw = math.rad(S.AntiAimYaw)
 			cam.CFrame = CFrame.new(cam.CFrame.Position) * CFrame.Angles(0, yaw, 0)
 		end
+		-- trigger bot
+		if S.TriggerBot and r then
+			local camera = workspace.CurrentCamera
+			local unit = camera.CFrame.LookVector
+			for _,p in ipairs(Players:GetPlayers()) do
+				if p~=LP and p.Character then
+					local part = p.Character:FindFirstChild(S.AimPart) or p.Character:FindFirstChild("Head")
+					local hh = p.Character:FindFirstChildOfClass("Humanoid")
+					if part and hh and hh.Health>0 then
+						local origin = camera.CFrame.Position
+						local direction = (part.Position - origin)
+						local dist = direction.Magnitude
+						if dist <= S.AimRange then
+							local unitDir = direction.Unit
+							local dot = unit:Dot(unitDir)
+							local angle = math.deg(math.acos(math.clamp(dot,-1,1)))
+							if angle <= S.FOVSize/2 then
+								if tick() - (S._triggerT or 0) >= S.TriggerDelay/1000 then
+									S._triggerT = tick()
+									local tool = char() and char():FindFirstChildOfClass("Tool")
+									if tool then tool:Activate() end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+		-- auto shoot
+		if S.AutoShoot and r then
+			local tool = char() and char():FindFirstChildOfClass("Tool")
+			if tool then
+				local best = nil
+				for _,p in ipairs(Players:GetPlayers()) do
+					if p~=LP and p.Character then
+						local part = p.Character:FindFirstChild(S.AimPart) or p.Character:FindFirstChild("Head")
+						local hh = p.Character:FindFirstChildOfClass("Humanoid")
+						if part and hh and hh.Health>0 then
+							local dist = (r.Position - part.Position).Magnitude
+							if dist <= S.AimRange then best = part end
+						end
+					end
+				end
+				if best then tool:Activate() end
+			end
+		end
+		-- resolver
+		if S.Resolver and r then
+			for _,p in ipairs(Players:GetPlayers()) do
+				if p~=LP and p.Character then
+					local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+					if hrp and hitSave[hrp] then hrp.Size = hitSave[hrp] end
+				end
+			end
+		end
 	end
 
 	if S.Disco then Lighting.Ambient=rainbow Lighting.OutdoorAmbient=rainbow Lighting.ColorShift_Top=rainbow end
 	if S.AutoTime then Lighting.ClockTime=(t*0.35)%24 end
 	if S.NoFog then Lighting.FogEnd=1e9 Lighting.FogStart=1e9 end
+	if S.CustomSky then
+		Lighting.Brightness = 1
+		Lighting.EnvironmentDiffuseScale = 0.8
+		Lighting.EnvironmentSpecularScale = 0.5
+		local sky = Lighting:FindFirstChildOfClass("Sky")
+		if not sky then
+			sky = Instance.new("Sky")
+			sky.SkyboxBk = "rbxassetid://2786"
+			sky.SkyboxDn = "rbxassetid://2786"
+			sky.SkyboxLf = "rbxassetid://2786"
+			sky.SkyboxRt = "rbxassetid://2786"
+			sky.SkyboxTl = "rbxassetid://2786"
+			sky.SkyboxFt = "rbxassetid://"..(S.SkyColor.R*1000000+S.SkyColor.G*1000+S.SkyColor.B)
+			sky.Parent = Lighting
+		end
+	end
+	if S.ScreenGlitch then
+		local cam = workspace.CurrentCamera
+		if cam then cam.CFrame *= CFrame.new(0,0,0) * CFrame.Angles(0, t*50, 0) end
+	end
 
 	local ecol = S.RGBEsp and rainbow or S.EspColor
 	if S.Tracer then TracerFolder:ClearAllChildren() end
@@ -1149,7 +1301,7 @@ RunService.RenderStepped:Connect(function(dt)
 		if skeletonDraw then
 			for _,lines in pairs(skeletonDraw) do
 				for _,line in pairs(lines) do
-					if line then line:Remove() end
+						if line then pcall(function() line:Remove() end) end
 				end
 			end
 			skeletonDraw = {}
@@ -1316,10 +1468,56 @@ end)
 
 RunService.Stepped:Connect(function()
 	local c=char() if not c then return end
+	local r=root()
 	if S.Noclip then for _,p in ipairs(c:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide=false end end end
 	if S.AntiFling then
 		for _,p in ipairs(Players:GetPlayers()) do
 			if p~=LP and p.Character then for _,bp in ipairs(p.Character:GetDescendants()) do if bp:IsA("BasePart") then bp.CanCollide=false bp.Massless=true end end end
+		end
+	end
+	if S.AntiTeleport and c then
+		local h = hum()
+		if h then h.WalkSpeed = Def.WS end
+	end
+	if S.AntiKick and c then
+		for _,p in ipairs(Players:GetPlayers()) do
+			if p~=LP and p.Character then
+				local h = p.Character:FindFirstChildOfClass("Humanoid")
+				if h then h.PlatformStand = false end
+			end
+		end
+	end
+	if S.Camp and r then
+		local cam = workspace.CurrentCamera
+		if cam then cam.CFrame = r.CFrame * CFrame.new(0, S.CampDist, 0) * CFrame.new(0,0,0) + Vector3.new(0,r.Position.Y,0) end
+	end
+	if S.AutoSteal then
+		S._stealT = S._stealT or 0
+		if tick() - S._stealT >= S.AutoStealDelay then
+			S._stealT = tick()
+			for _,p in ipairs(Players:GetPlayers()) do
+				if p~=LP and p.Character then
+					local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+					local h = p.Character:FindFirstChildOfClass("Humanoid")
+					if hrp and h and h.Health > 0 then hrp.CFrame = hrp.CFrame + Vector3.new(0, -500, 0) end
+				end
+			end
+		end
+	end
+	if S.FakeName and c then
+		pcall(function() LP.Name = "x" .. math.random(1000,9999) end)
+	end
+	if S.FakeLatency and r then r.Anchored = not r.Anchored end
+	if S.AutoPickup and c then
+		for _,p in ipairs(Players:GetPlayers()) do
+			if p~=LP and p.Character then
+				local backpack = p:FindFirstChildOfClass("Backpack")
+				if backpack then
+					for _,item in ipairs(backpack:GetChildren()) do
+						if item:IsA("Tool") then pcall(function() item.Parent = p.Character end) end
+					end
+				end
+			end
 		end
 	end
 end)
