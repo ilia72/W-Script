@@ -257,8 +257,13 @@ local function hardOff(id)
 	elseif id=="FakeLag" then local r=root() if r then r.Anchored=false end
 	elseif id=="Hitbox" or id=="Reach" then resetHit()
 	elseif id=="ESP" or id=="Box" or id=="NameESP" or id=="HP" or id=="Tracer" or id=="Skeleton" or id=="DistanceESP" or id=="NameHP" then
-		for _,obj in ipairs(workspace:GetDescendants()) do
-			if obj:IsA("Line") then obj:Destroy() end
+		if skeletonDraw then
+			for _,lines in pairs(skeletonDraw) do
+				for _,line in pairs(lines) do
+					if line then line:Remove() end
+				end
+			end
+			skeletonDraw = {}
 		end
 		for _,p in ipairs(Players:GetPlayers()) do
 			if p.Character then
@@ -293,6 +298,7 @@ local FOVCorner = Instance.new("UICorner", FOVDraw) FOVCorner.CornerRadius=UDim.
 -- =============================================================================
 local rawIndex, rawNewIndex
 local silentTarget = nil
+local skeletonDraw = {}
 
 local function getClosestInFOV()
 	local cam = workspace.CurrentCamera
@@ -1139,9 +1145,14 @@ RunService.RenderStepped:Connect(function(dt)
 
 	local ecol = S.RGBEsp and rainbow or S.EspColor
 	if S.Tracer then TracerFolder:ClearAllChildren() end
-	if S.Skeleton then
-		for _,obj in ipairs(workspace:GetDescendants()) do
-			if obj:IsA("Line") then obj:Destroy() end
+	if not S.Skeleton then
+		if skeletonDraw then
+			for _,lines in pairs(skeletonDraw) do
+				for _,line in pairs(lines) do
+					if line then line:Remove() end
+				end
+			end
+			skeletonDraw = {}
 		end
 	end
 	for _,p in ipairs(Players:GetPlayers()) do
@@ -1202,6 +1213,8 @@ RunService.RenderStepped:Connect(function(dt)
 				beam.Color=ColorSequence.new(ecol)
 			end
 			if S.Skeleton and pc then
+				if not skeletonDraw then skeletonDraw = {} end
+				if not skeletonDraw[p.Name] then skeletonDraw[p.Name] = {} end
 				local bones = {"Head","UpperTorso","LowerTorso","LeftArm","RightArm","LeftLeg","RightLeg"}
 				local positions = {}
 				for _,boneName in ipairs(bones) do
@@ -1213,18 +1226,25 @@ RunService.RenderStepped:Connect(function(dt)
 					{"UpperTorso","LeftArm"},{"UpperTorso","RightArm"},
 					{"LowerTorso","LeftLeg"},{"LowerTorso","RightLeg"},
 				}
+				local cam = workspace.CurrentCamera
 				for _,conn in ipairs(connections) do
 					local from, to = positions[conn[1]], positions[conn[2]]
 					if from and to then
-						local ok
-						pcall(function()
-							local line = Instance.new("Line")
-							line.From = from
-							line.To = to
+						local sf = cam:WorldToViewportPoint(from)
+						local st = cam:WorldToViewportPoint(to)
+						if sf.Z > 0 and st.Z > 0 then
+							local key = conn[1].."_"..conn[2]
+							local line = skeletonDraw[p.Name][key]
+							if not line then
+								line = Drawing.new("Line")
+								line.Thickness = 2
+								skeletonDraw[p.Name][key] = line
+							end
 							line.Color = ecol
-							line.Thickness = 2
-							line.Parent = workspace
-						end)
+							line.From = Vector2.new(sf.X, sf.Y)
+							line.To = Vector2.new(st.X, st.Y)
+							line.Visible = true
+						end
 					end
 				end
 			end
