@@ -105,6 +105,10 @@ local S = {
 	_triggerT=0, _stealT=0, _triggerDelay=0,
 
 	RGBUI=false, Cross=false, WM=false, Stats=false, BindList=true, AntiAFK=true,
+
+	SoundControl=false, SoundVolume=0.3,
+	AntiAimJitter=false, AntiAimPitch=0, AntiAimDesync=false, AntiAimDesyncDir=0,
+	DiscordCopied=false,
 }
 
 local Feat = {}
@@ -288,15 +292,10 @@ local function hardOff(id)
 		local sky = Lighting:FindFirstChildOfClass("Sky")
 		if sky then sky:Destroy() end
 		resetLight()
-	elseif id=="ScreenGlitch" then end
-	elseif id=="Camp" then end
-	elseif id=="AntiTeleport" then local h=hum() if h then h.WalkSpeed=Def.WS end end
-	elseif id=="AutoSteal" or id=="FakeLatency" then local r=root() if r then r.Anchored=false end end
-	elseif id=="FakeName" then end
-	elseif id=="AutoPickup" then end
-	elseif id=="TriggerBot" or id=="AutoShoot" or id=="WallBang" or id=="Resolver" or id=="Prediction" then end
-	elseif id=="BoxLines" or id=="TopInfo" or id=="BottomInfo" or id=="ScreenChroma" or id=="ScreenVignette" then end
-	elseif id=="SilentAim" or id=="Aimbot" or id=="FOVCircle" then end
+	elseif id=="ScreenGlitch" or id=="Camp" or id=="FakeName" or id=="AutoPickup" or id=="TriggerBot" or id=="AutoShoot" or id=="WallBang" or id=="Resolver" or id=="Prediction" or id=="BoxLines" or id=="TopInfo" or id=="BottomInfo" or id=="ScreenChroma" or id=="ScreenVignette" or id=="SilentAim" or id=="Aimbot" or id=="FOVCircle" then
+	elseif id=="AntiTeleport" then local h=hum() if h then h.WalkSpeed=Def.WS end
+	elseif id=="AutoSteal" or id=="FakeLatency" then local r=root() if r then r.Anchored=false end
+	elseif id=="AntiAimJitter" or id=="AntiAimDesync" or id=="AntiAimPitch" or id=="SoundControl" then end
 end
 
 -- =============================================================================
@@ -553,8 +552,28 @@ local function openCustomize(featureId, label, anchorFrame)
 	ctxBtn("color: green", function() ft.color=Color3.fromRGB(70,220,120) if featureId=="ESP" or featureId=="Box" then S.EspColor=ft.color end if featureId=="Halo" or featureId=="Trail" then S.FXColor=ft.color end Notify("color green",1.2,ft.color) end)
 	ctxBtn("color: purple", function() ft.color=Color3.fromRGB(170,90,255) if featureId=="ESP" or featureId=="Box" then S.EspColor=ft.color end if featureId=="Halo" or featureId=="Trail" then S.FXColor=ft.color end Notify("color purple",1.2,ft.color) end)
 	ctxBtn("color: white", function() ft.color=Color3.fromRGB(255,255,255) if featureId=="ESP" or featureId=="Box" then S.EspColor=ft.color end if featureId=="Halo" or featureId=="Trail" then S.FXColor=ft.color end Notify("color white",1.2,ft.color) end)
-	ctxBtn("color: accent/rgb", function() ft.color=C.accent if featureId=="ESP" or featureId=="Box" then S.EspColor=ft.color end Notify("color accent",1.2,C.accent) end)
-	if featureId=="SilentAim" or featureId=="Aimbot" then
+ 	ctxBtn("color: accent/rgb", function() ft.color=C.accent if featureId=="ESP" or featureId=="Box" then S.EspColor=ft.color end Notify("color accent",1.2,C.accent) end)
+ 	ctxBtn("color picker", function()
+ 		hideCtx()
+ 		local picker = Instance.new("Frame", Gui)
+ 		picker.Size = UDim2.new(0,220,0,180) picker.BackgroundColor3=C.bg picker.BorderSizePixel=0 picker.ZIndex=100 corner(picker,6) drag(picker,picker)
+ 		local title=Instance.new("TextLabel",picker) title.Size=UDim2.new(1,0,0,20) title.BackgroundTransparency=1 title.Font=Enum.Font.Code title.TextSize=11 title.TextColor3=C.text title.Text="HSV color picker"
+ 		local h=0 s=1 v=1
+ 		local bar=Instance.new("Frame",picker) bar.Size=UDim2.new(1,-16,0,120) bar.Position=UDim2.new(0,8,0,30) bar.BackgroundColor3=C.elem bar.BorderSizePixel=0 corner(bar,4)
+ 		local preview=Instance.new("Frame",bar) preview.Size=UDim2.new(0,40,0,40) preview.Position=UDim2.new(0,5,0,5) preview.BackgroundColor3=Color3.fromHSV(h,s,v) preview.BorderSizePixel=0 corner(preview,3)
+ 		local hSlider=Instance.new("TextButton",picker)
+ 		hSlider.Size=UDim2.new(1,-16,0,18) hSlider.Position=UDim2.new(0,8,0,135) hSlider.BackgroundColor3=C.off hSlider.Text="hue: "..math.floor(h*360) hSlider.Font=Enum.Font.Code hSlider.TextSize=11 hSlider.TextColor3=C.text corner(hSlider,4)
+ 		hSlider.MouseButton1Click:Connect(function() h=(h+0.1)%1 preview.BackgroundColor3=Color3.fromHSV(h,s,v) hSlider.Text="hue: "..math.floor(h*360) end)
+ 		Btn({page=picker}, "apply", function()
+ 			ft.color=Color3.fromHSV(h,s,v)
+ 			if featureId=="ESP" or featureId=="Box" then S.EspColor=ft.color end
+ 			if featureId=="Halo" or featureId=="Trail" then S.FXColor=ft.color end
+ 			Notify("color applied",1.2,ft.color)
+ 			picker:Destroy()
+ 		end)
+ 		ctxBtn("close", function() picker:Destroy() end)
+ 	end)
+ 	if featureId=="SilentAim" or featureId=="Aimbot" then
 		ctxBtn("aim part: Head", function() S.AimPart="Head" Notify("aim Head",1.2,C.green) end)
 		ctxBtn("aim part: HumanoidRootPart", function() S.AimPart="HumanoidRootPart" Notify("aim HRP",1.2,C.green) end)
 		ctxBtn("aim part: UpperTorso", function() S.AimPart="UpperTorso" Notify("aim Torso",1.2,C.green) end)
@@ -730,6 +749,11 @@ section(tCombat,"advanced")
 Toggle(tCombat,"resolver","Resolver",false,function(v) S.Resolver=v end)
 Toggle(tCombat,"prediction","Prediction",false,function(v) S.Prediction=v end)
 Slider(tCombat,"prediction %",0,100,8,function(v) S.PredictionValue=v/1000 end)
+section(tCombat,"anti-aim")
+Toggle(tCombat,"anti-aim jitter","AntiAimJitter",false,function(v) S.AntiAimJitter=v end)
+Toggle(tCombat,"anti-aim desync","AntiAimDesync",false,function(v) S.AntiAimDesync=v end)
+Slider(tCombat,"anti-aim pitch",-90,90,0,function(v) S.AntiAimPitch=v end)
+Slider(tCombat,"desync dir",-180,180,0,function(v) S.AntiAimDesyncDir=v end)
 
 section(tVis,"esp  (RMB = color)")
 Toggle(tVis,"highlight esp","ESP",false,function(v) S.ESP=v end)
@@ -868,13 +892,17 @@ Toggle(tMisc,"fake name","FakeName",false,function(v) S.FakeName=v end)
 Toggle(tMisc,"auto pickup","AutoPickup",false,function(v) S.AutoPickup=v end)
 Toggle(tMisc,"fake latency","FakeLatency",false,function(v) S.FakeLatency=v end)
 section(tMisc,"actions")
-Btn(tMisc,"dash now", function() local r=root() local cam=workspace.CurrentCamera 	if r and cam then r.CFrame = r.CFrame + cam.CFrame.LookVector*S.DashDist end end)
+Btn(tMisc,"dash now", function() local r=root() local cam=workspace.CurrentCamera if r and cam then r.CFrame = r.CFrame + cam.CFrame.LookVector*S.DashDist end end)
 Btn(tMisc,"give btools", function()
 	for _,bt in ipairs({Enum.BinType.Clone,Enum.BinType.Hammer,Enum.BinType.Grab}) do local h=Instance.new("HopperBin") h.BinType=bt h.Parent=LP.Backpack end
 	Notify("btools",2,C.green)
 end)
 Btn(tMisc,"rejoin", function() TeleportService:TeleportToPlaceInstance(game.PlaceId,game.JobId,LP) end)
 Btn(tMisc,"server hop", function() TeleportService:Teleport(game.PlaceId,LP) end)
+section(tMisc,"sound")
+Toggle(tMisc,"sound control","SoundControl",false,function(v) S.SoundControl=v end)
+Slider(tMisc,"sound volume",0,100,30,function(v) S.SoundVolume=v/100 end)
+Btn(tMisc,"discord", function() if not S.DiscordCopied then pcall(setclipboard, "https://discord.gg/JbdzBnu8fP") S.DiscordCopied=true Notify("discord link copied!",2,C.green) else Notify("already copied",1.5,C.orange) end end)
 section(tMisc,"panic")
 Btn(tMisc,"DISABLE ALL", function()
 	for _,tog in pairs(Registry.Toggles) do if tog.get() then tog.set(false,false) end end
@@ -1146,7 +1174,7 @@ RunService.RenderStepped:Connect(function(dt)
 		if S.Float and not doFly then
 			local v=r.AssemblyLinearVelocity r.AssemblyLinearVelocity=Vector3.new(v.X,0.55,v.Z)
 		end
-		if S.Spin then r.CFrame = r.CFrame * CFrame.Angles(0,math.rad(S.SpinSpd),0) end
+		if S.Spin then r.CFrame = r.CFrame *  CFrame.Angles(0,math.rad(S.SpinSpd),0) end
 		if S.Fling then r.AssemblyAngularVelocity=Vector3.new(1e5,1e5,1e5) end
 		if S.Spider then
 			local rp=RaycastParams.new() rp.FilterDescendantsInstances={c} rp.FilterType=Enum.RaycastFilterType.Exclude
@@ -1184,6 +1212,18 @@ RunService.RenderStepped:Connect(function(dt)
 	end
 
 	if cam then
+		if S.SoundControl then
+			for _, p in ipairs(Players:GetPlayers()) do
+				if p ~= LP and p.Character then
+					for _, s in ipairs(p.Character:GetDescendants()) do
+						if s:IsA("Sound") then
+							s.Volume = S.SoundVolume
+							s.PlaybackSpeed = S.SoundVolume > 0 and 1 or 0
+						end
+					end
+				end
+			end
+		end
 		if S.FOV and cam.FieldOfView ~= S.FOVVal then cam.FieldOfView=S.FOVVal end
 		if S.ThirdP then
 			LP.CameraMode = Enum.CameraMode.Classic
@@ -1193,7 +1233,7 @@ RunService.RenderStepped:Connect(function(dt)
 			forceVisibleCharacter()
 		end
 		if S.Bob and h and h.MoveDirection.Magnitude>0 and not S.Fly then
-			local bt=t*11 cam.CFrame = cam.CFrame * CFrame.new(math.sin(bt)*0.07, math.abs(math.cos(bt))*0.07, 0)
+			local bt=t*11 cam.CFrame = cam.CFrame *  CFrame.new(math.sin(bt)*0.07, math.abs(math.cos(bt))*0.07, 0)
 		end
 		if S.Aimbot and r then
 			local best,bd=nil,S.AimRange
@@ -1211,7 +1251,18 @@ RunService.RenderStepped:Connect(function(dt)
 		end
 		if S.AntiAim and r then
 			local yaw = math.rad(S.AntiAimYaw)
-			cam.CFrame = CFrame.new(cam.CFrame.Position) * CFrame.Angles(0, yaw, 0)
+			if S.AntiAimJitter then yaw = yaw + math.rad(math.sin(t*20)*15) end
+			if S.AntiAimDesync then
+				local desyncYaw = math.rad(S.AntiAimDesyncDir)
+				r.CFrame = CFrame.new(r.Position, r.Position + r.CFrame.LookVector * CFrame.Angles(0, desyncYaw, 0).LookVector) * CFrame.Angles(0, yaw, 0)
+			else
+				r.CFrame = r.CFrame * CFrame.Angles(0, yaw, 0)
+			end
+			if S.AntiAimPitch ~= 0 and r then
+				local newCf = r.CFrame
+				local rotated = CFrame.fromOrientation(math.rad(S.AntiAimPitch), 0, 0)
+				r.CFrame = CFrame.new(r.Position) * rotated * CFrame.new(0,0,0)
+			end
 		end
 		-- trigger bot
 		if S.TriggerBot and r then
@@ -1298,7 +1349,7 @@ RunService.RenderStepped:Connect(function(dt)
 	end
 	if S.ScreenGlitch then
 		local cam = workspace.CurrentCamera
-		if cam then cam.CFrame = cam.CFrame * CFrame.new(0,0,0) * CFrame.Angles(0, t*50, 0) end
+		if cam then cam.CFrame = cam.CFrame *  CFrame.new(0,0,0) * CFrame.Angles(0, t*50, 0) end
 	end
 	if S.ScreenChroma and cam then
 		-- placeholder: would require Drawing API or GUI overlay for chromatic aberration
@@ -1415,10 +1466,11 @@ RunService.RenderStepped:Connect(function(dt)
 								line.To = Vector2.new(st.X, st.Y)
 								line.Visible = true
 							end
-					end
 				end
 			end
-			if S.DistanceESP and hrp then
+		end
+	end
+	if S.DistanceESP and hrp then
 				local dist = math.floor((r.Position - hrp.Position).Magnitude)
 				local df = pc:FindFirstChild("W_DIST")
 				if not df then
@@ -1622,5 +1674,6 @@ UIS.InputBegan:Connect(function(input, gp)
 		end
 	end
 end)
+
 
 Notify("loaded | K menu | RMB customize | cfg tab", 3.5, C.green)
