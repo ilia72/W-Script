@@ -153,6 +153,12 @@ local S = {
 	DiscordCopied=false,
 }
 
+local Profile = {
+	nickname = LP.Name,
+	avatar = "rbxassetid://1679615928",
+	avatarSource = "default",
+}
+
 local Feat = {}
 local function ensureFeat(id)
 	if not Feat[id] then
@@ -471,6 +477,11 @@ local function exportConfig()
 		espColor = serializeColor(S.EspColor),
 		fxColor = serializeColor(S.FXColor),
 		aimPart = S.AimPart, fovSize = S.FOVSize,
+		profile = {
+			nickname = Profile.nickname,
+			avatar = Profile.avatar,
+			avatarSource = Profile.avatarSource,
+		},
 	}
 	for k,v in pairs(S) do
 		local t = typeof(v)
@@ -495,6 +506,10 @@ local function applyConfig(json)
 	if data.fxColor then S.FXColor = deserializeColor(data.fxColor) end
 	if data.aimPart then S.AimPart = data.aimPart end
 	if data.fovSize then S.FOVSize = data.fovSize end
+	if data.profile then
+		if data.profile.avatar then setProfileAvatar(data.profile.avatar, data.profile.avatarSource) end
+		if data.profile.nickname then setProfileNickname(data.profile.nickname) end
+	end
 	if data.feat then
 		for id,f in pairs(data.feat) do
 			local ft = ensureFeat(id)
@@ -644,6 +659,44 @@ ProfileDisplayName.TextXAlignment = Enum.TextXAlignment.Left
 ProfileDisplayName.Text = "@"..LP.DisplayName
 ProfileDisplayName.TextWrapped = true
 
+local function setProfileAvatar(image, source)
+	if type(image) == "string" and image ~= "" then
+		Profile.avatar = image
+	end
+	if source then
+		Profile.avatarSource = source
+	end
+	AvatarImg.Image = Profile.avatar
+	ProfileAvatar.Image = Profile.avatar
+end
+
+local function setProfileNickname(nickname)
+	nickname = tostring(nickname or ""):gsub("^%s+", ""):gsub("%s+$", "")
+	if nickname == "" then nickname = LP.Name end
+	nickname = nickname:sub(1, 30)
+	Profile.nickname = nickname
+	ProfileName.Text = nickname
+	ProfileDisplayName.Text = "@"..nickname
+end
+
+local function loadRobloxAvatar()
+	local ok, url = pcall(function()
+		return Players:GetUserThumbnailAsync(LP.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+	end)
+	if ok and type(url) == "string" and url ~= "" then
+		setProfileAvatar(url, "roblox")
+	else
+		setProfileAvatar("rbxassetid://1679615928", "default")
+	end
+end
+
+setProfileNickname(LP.Name)
+task.defer(loadRobloxAvatar)
+ProfileFrame.Active = true
+ProfileFrame.MouseButton1Click:Connect(function()
+	openCustomize("Profile", "profile", ProfileFrame)
+end)
+
 local Content=Instance.new("Frame",Main)
 Content.BackgroundTransparency=1 Content.Position=UDim2.new(0,126,0,80) Content.Size=UDim2.new(1,-136,1,-88)
 
@@ -696,30 +749,53 @@ end
 
 local function openCustomize(featureId, label, anchorFrame)
 	hideCtx()
-	for _,ch in ipairs(Ctx:GetChildren()) do if ch:IsA("TextButton") then ch:Destroy() end end
+	for _,ch in ipairs(Ctx:GetChildren()) do
+		if ch ~= CtxStroke and ch ~= CtxList and ch ~= CtxPad then ch:Destroy() end
+	end
 	local ft = ensureFeat(featureId)
 	local title=Instance.new("TextLabel",Ctx)
 	title.Size=UDim2.new(1,0,0,20) title.BackgroundTransparency=1
 	title.Text="customize: "..label title.Font=Enum.Font.Code title.TextSize=11 title.TextColor3=C.dim title.TextXAlignment=Enum.TextXAlignment.Left
-	
-	-- Avatar section (for menu/misc)
-	if featureId=="Menu" or featureId=="WM" or featureId=="Stats" then
-		local avatarLabel=Instance.new("TextLabel",Ctx)
-		avatarLabel.Size=UDim2.new(1,0,0,16) avatarLabel.BackgroundTransparency=1
-		avatarLabel.Text="— avatar" avatarLabel.Font=Enum.Font.Code avatarLabel.TextSize=10 avatarLabel.TextColor3=C.dim avatarLabel.TextXAlignment=Enum.TextXAlignment.Left
-		ctxBtn("avatar: default", function() AvatarImg.Image="rbxassetid://1679615928" Notify("avatar default",1.2,C.green) end)
-		ctxBtn("avatar: skull", function() AvatarImg.Image="rbxassetid://1612747883" Notify("avatar skull",1.2,C.green) end)
-		ctxBtn("avatar: cool", function() AvatarImg.Image="rbxassetid://616608488" Notify("avatar cool",1.2,C.green) end)
-		ctxBtn("avatar: gaming", function() AvatarImg.Image="rbxassetid://5877528972" Notify("avatar gaming",1.2,C.green) end)
-		ctxBtn("avatar: custom url...", function()
-			hideCtx()
-			local url = game:GetService("GuiService"):PromptForInputAsync("Enter image URL", LP.PlayerGui)
-			if url and url~="" then
-				AvatarImg.Image = url
-				Notify("avatar set",1.2,C.green)
-			end
-		end)
-	end
+
+	local profileSection=Instance.new("Frame",Ctx)
+	profileSection.Size=UDim2.new(1,0,0,82) profileSection.BackgroundColor3=C.elem profileSection.BorderSizePixel=0 corner(profileSection,5)
+	local profileAvatar=Instance.new("ImageLabel",profileSection)
+	profileAvatar.Size=UDim2.new(0,38,0,38) profileAvatar.Position=UDim2.new(0,7,0,7) profileAvatar.BackgroundColor3=C.accent profileAvatar.Image=Profile.avatar profileAvatar.ScaleType=Enum.ScaleType.Crop corner(profileAvatar,7)
+	local profileName=Instance.new("TextBox",profileSection)
+	profileName.Size=UDim2.new(1,-54,0,24) profileName.Position=UDim2.new(0,51,0,7) profileName.BackgroundColor3=C.bg profileName.BorderSizePixel=0 profileName.ClearTextOnFocus=false profileName.PlaceholderText="nickname..." profileName.PlaceholderColor3=C.dim profileName.Font=Enum.Font.Code profileName.TextSize=11 profileName.TextColor3=C.text profileName.TextXAlignment=Enum.TextXAlignment.Left profileName.Text=Profile.nickname corner(profileName,4)
+	profileName.FocusLost:Connect(function(enterPressed)
+		if enterPressed then setProfileNickname(profileName.Text) end
+	end)
+	local profileHint=Instance.new("TextLabel",profileSection)
+	profileHint.Size=UDim2.new(1,-54,0,14) profileHint.Position=UDim2.new(0,51,0,35) profileHint.BackgroundTransparency=1 profileHint.Font=Enum.Font.Code profileHint.TextSize=8 profileHint.TextColor3=C.dim profileHint.TextXAlignment=Enum.TextXAlignment.Left profileHint.Text="enter nickname + press Enter"
+	local profileAvatarBtn=Instance.new("TextButton",profileSection)
+	profileAvatarBtn.Size=UDim2.new(1,-14,0,22) profileAvatarBtn.Position=UDim2.new(0,7,0,53) profileAvatarBtn.BackgroundColor3=C.off profileAvatarBtn.BorderSizePixel=0 profileAvatarBtn.Font=Enum.Font.Code profileAvatarBtn.TextSize=9 profileAvatarBtn.TextColor3=C.text profileAvatarBtn.Text="avatar: "..Profile.avatarSource corner(profileAvatarBtn,4)
+	profileAvatarBtn.MouseButton1Click:Connect(function()
+		loadRobloxAvatar()
+		profileAvatar.Image=Profile.avatar
+		profileAvatarBtn.Text="avatar: "..Profile.avatarSource
+		Notify("roblox avatar loaded",1.2,C.green)
+	end)
+
+	local avatarLabel=Instance.new("TextLabel",Ctx)
+	avatarLabel.Size=UDim2.new(1,0,0,16) avatarLabel.BackgroundTransparency=1
+	avatarLabel.Text="— avatar presets" avatarLabel.Font=Enum.Font.Code avatarLabel.TextSize=10 avatarLabel.TextColor3=C.dim avatarLabel.TextXAlignment=Enum.TextXAlignment.Left
+	ctxBtn("avatar: default", function() setProfileAvatar("rbxassetid://1679615928","default") end)
+	ctxBtn("avatar: skull", function() setProfileAvatar("rbxassetid://1612747883","skull") end)
+	ctxBtn("avatar: cool", function() setProfileAvatar("rbxassetid://616608488","cool") end)
+	ctxBtn("avatar: gaming", function() setProfileAvatar("rbxassetid://5877528972","gaming") end)
+	local customAvatar=Instance.new("TextBox",Ctx)
+	customAvatar.Size=UDim2.new(1,0,0,26) customAvatar.BackgroundColor3=C.bg customAvatar.BorderSizePixel=0 customAvatar.ClearTextOnFocus=false customAvatar.PlaceholderText="custom avatar URL..." customAvatar.PlaceholderColor3=C.dim customAvatar.Font=Enum.Font.Code customAvatar.TextSize=10 customAvatar.TextColor3=C.text customAvatar.TextXAlignment=Enum.TextXAlignment.Left corner(customAvatar,4)
+	local customAvatarBtn=Instance.new("TextButton",Ctx)
+	customAvatarBtn.Size=UDim2.new(1,0,0,24) customAvatarBtn.BackgroundColor3=C.elem customAvatarBtn.BorderSizePixel=0 customAvatarBtn.Font=Enum.Font.Code customAvatarBtn.TextSize=10 customAvatarBtn.TextColor3=C.text customAvatarBtn.Text="apply custom avatar" corner(customAvatarBtn,4)
+	customAvatarBtn.MouseButton1Click:Connect(function()
+		local url=customAvatar.Text:gsub("^%s+",""):gsub("%s+$","")
+		if url=="" then Notify("enter avatar URL",1.5,C.red) return end
+		setProfileAvatar(url,"custom")
+		profileAvatar.Image=Profile.avatar
+		profileAvatarBtn.Text="avatar: custom"
+		Notify("avatar set",1.2,C.green)
+	end)
 	
 	-- Bind section
 	local bindLabel=Instance.new("TextLabel",Ctx)
