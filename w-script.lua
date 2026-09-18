@@ -113,8 +113,39 @@ local S = {
 
 local Feat = {}
 local function ensureFeat(id)
-	if not Feat[id] then Feat[id] = { color = C.accent, bind = nil } end
+	if not Feat[id] then
+		Feat[id] = {
+			color = C.accent,
+			bind = nil,
+			settings = {},
+			customValues = {}
+		}
+	end
 	return Feat[id]
+end
+
+local function getFeatSetting(id, key, default)
+	local ft = ensureFeat(id)
+	if ft.settings and ft.settings[key] ~= nil then return ft.settings[key] end
+	return default
+end
+
+local function setFeatSetting(id, key, value)
+	local ft = ensureFeat(id)
+	ft.settings = ft.settings or {}
+	ft.settings[key] = value
+end
+
+local function getFeatCustomValue(id, key, default)
+	local ft = ensureFeat(id)
+	if ft.customValues and ft.customValues[key] ~= nil then return ft.customValues[key] end
+	return default
+end
+
+local function setFeatCustomValue(id, key, value)
+	local ft = ensureFeat(id)
+	ft.customValues = ft.customValues or {}
+	ft.customValues[key] = value
 end
 
 local Def = {
@@ -403,7 +434,14 @@ local function exportConfig()
 		local t = typeof(v)
 		if t=="boolean" or t=="number" or t=="string" then data.state[k]=v end
 	end
-	for id,f in pairs(Feat) do data.feat[id] = { color = serializeColor(f.color) } end
+	for id,f in pairs(Feat) do
+		data.feat[id] = {
+			color = serializeColor(f.color),
+			bind = f.bind and tostring(f.bind) or nil,
+			settings = f.settings or {},
+			customValues = f.customValues or {}
+		}
+	end
 	return HttpService:JSONEncode(data)
 end
 
@@ -419,6 +457,15 @@ local function applyConfig(json)
 		for id,f in pairs(data.feat) do
 			local ft = ensureFeat(id)
 			if f.color then ft.color = deserializeColor(f.color) end
+			if f.bind then
+				-- Convert string back to KeyCode
+				local ok, keycode = pcall(function() return Enum.KeyCode[f.bind] end)
+				if ok and keycode then ft.bind = keycode end
+			else
+				ft.bind = nil
+			end
+			if f.settings then ft.settings = f.settings end
+			if f.customValues then ft.customValues = f.customValues end
 		end
 	end
 	if data.state then
@@ -547,6 +594,30 @@ local function openCustomize(featureId, label, anchorFrame)
 	local title=Instance.new("TextLabel",Ctx)
 	title.Size=UDim2.new(1,0,0,20) title.BackgroundTransparency=1
 	title.Text="customize: "..label title.Font=Enum.Font.Code title.TextSize=11 title.TextColor3=C.dim title.TextXAlignment=Enum.TextXAlignment.Left
+	
+	-- Bind section
+	local bindLabel=Instance.new("TextLabel",Ctx)
+	bindLabel.Size=UDim2.new(1,0,0,16) bindLabel.BackgroundTransparency=1
+	bindLabel.Text="— bind" bindLabel.Font=Enum.Font.Code bindLabel.TextSize=10 bindLabel.TextColor3=C.dim bindLabel.TextXAlignment=Enum.TextXAlignment.Left
+	
+	local currentBind = ft.bind
+	local bindBtnText = currentBind and tostring(currentBind):gsub("Enum.KeyCode.","") or "set bind"
+	ctxBtn("bind: "..bindBtnText, function()
+		if waitingFeatBind then return end
+		waitingFeatBind = featureId
+		Notify("press key for "..label.."...", 1.5, C.orange)
+		hideCtx()
+	end)
+	ctxBtn("clear bind", function()
+		ft.bind = nil
+		Notify("bind cleared", 1.2, C.orange)
+	end)
+	
+	-- Color section
+	local colorLabel=Instance.new("TextLabel",Ctx)
+	colorLabel.Size=UDim2.new(1,0,0,16) colorLabel.BackgroundTransparency=1
+	colorLabel.Text="— color" colorLabel.Font=Enum.Font.Code colorLabel.TextSize=10 colorLabel.TextColor3=C.dim colorLabel.TextXAlignment=Enum.TextXAlignment.Left
+	
 	ctxBtn("color: red", function() ft.color=Color3.fromRGB(255,70,70) if featureId=="ESP" or featureId=="Box" then S.EspColor=ft.color end if featureId=="Halo" or featureId=="Trail" then S.FXColor=ft.color end Notify("color red",1.2,ft.color) end)
 	ctxBtn("color: blue", function() ft.color=Color3.fromRGB(80,140,255) if featureId=="ESP" or featureId=="Box" then S.EspColor=ft.color end if featureId=="Halo" or featureId=="Trail" then S.FXColor=ft.color end Notify("color blue",1.2,ft.color) end)
 	ctxBtn("color: green", function() ft.color=Color3.fromRGB(70,220,120) if featureId=="ESP" or featureId=="Box" then S.EspColor=ft.color end if featureId=="Halo" or featureId=="Trail" then S.FXColor=ft.color end Notify("color green",1.2,ft.color) end)
@@ -562,22 +633,86 @@ local function openCustomize(featureId, label, anchorFrame)
  		local bar=Instance.new("Frame",picker) bar.Size=UDim2.new(1,-16,0,120) bar.Position=UDim2.new(0,8,0,30) bar.BackgroundColor3=C.elem bar.BorderSizePixel=0 corner(bar,4)
  		local preview=Instance.new("Frame",bar) preview.Size=UDim2.new(0,40,0,40) preview.Position=UDim2.new(0,5,0,5) preview.BackgroundColor3=Color3.fromHSV(h,s,v) preview.BorderSizePixel=0 corner(preview,3)
  		local hSlider=Instance.new("TextButton",picker)
- 		hSlider.Size=UDim2.new(1,-16,0,18) hSlider.Position=UDim2.new(0,8,0,135) hSlider.BackgroundColor3=C.off hSlider.Text="hue: "..math.floor(h*360) hSlider.Font=Enum.Font.Code hSlider.TextSize=11 hSlider.TextColor3=C.text corner(hSlider,4)
- 		hSlider.MouseButton1Click:Connect(function() h=(h+0.1)%1 preview.BackgroundColor3=Color3.fromHSV(h,s,v) hSlider.Text="hue: "..math.floor(h*360) end)
- 		Btn({page=picker}, "apply", function()
- 			ft.color=Color3.fromHSV(h,s,v)
- 			if featureId=="ESP" or featureId=="Box" then S.EspColor=ft.color end
- 			if featureId=="Halo" or featureId=="Trail" then S.FXColor=ft.color end
- 			Notify("color applied",1.2,ft.color)
- 			picker:Destroy()
+ 			hSlider.Size=UDim2.new(1,-16,0,18) hSlider.Position=UDim2.new(0,8,0,135) hSlider.BackgroundColor3=C.off hSlider.Text="hue: "..math.floor(h*360) hSlider.Font=Enum.Font.Code hSlider.TextSize=11 hSlider.TextColor3=C.text corner(hSlider,4)
+ 			hSlider.MouseButton1Click:Connect(function() h=(h+0.1)%1 preview.BackgroundColor3=Color3.fromHSV(h,s,v) hSlider.Text="hue: "..math.floor(h*360) end)
+ 			Btn({page=picker}, "apply", function()
+ 				ft.color=Color3.fromHSV(h,s,v)
+ 				if featureId=="ESP" or featureId=="Box" then S.EspColor=ft.color end
+ 				if featureId=="Halo" or featureId=="Trail" then S.FXColor=ft.color end
+ 				Notify("color applied",1.2,ft.color)
+ 				picker:Destroy()
+ 			end)
+ 			ctxBtn("close", function() picker:Destroy() end)
  		end)
- 		ctxBtn("close", function() picker:Destroy() end)
- 	end)
- 	if featureId=="SilentAim" or featureId=="Aimbot" then
+	
+	-- Feature-specific settings
+	if featureId=="SilentAim" or featureId=="Aimbot" then
+		local aimLabel=Instance.new("TextLabel",Ctx)
+		aimLabel.Size=UDim2.new(1,0,0,16) aimLabel.BackgroundTransparency=1
+		aimLabel.Text="— aim" aimLabel.Font=Enum.Font.Code aimLabel.TextSize=10 aimLabel.TextColor3=C.dim aimLabel.TextXAlignment=Enum.TextXAlignment.Left
 		ctxBtn("aim part: Head", function() S.AimPart="Head" Notify("aim Head",1.2,C.green) end)
 		ctxBtn("aim part: HumanoidRootPart", function() S.AimPart="HumanoidRootPart" Notify("aim HRP",1.2,C.green) end)
 		ctxBtn("aim part: UpperTorso", function() S.AimPart="UpperTorso" Notify("aim Torso",1.2,C.green) end)
 	end
+	
+	if featureId=="Fly" or featureId=="VehFly" then
+		local flyLabel=Instance.new("TextLabel",Ctx)
+		flyLabel.Size=UDim2.new(1,0,0,16) flyLabel.BackgroundTransparency=1
+		flyLabel.Text="— fly" flyLabel.Font=Enum.Font.Code flyLabel.TextSize=10 flyLabel.TextColor3=C.dim flyLabel.TextXAlignment=Enum.TextXAlignment.Left
+		ctxBtn("speed: 30", function() S.FlySpeed=30 Notify("fly speed 30",1.2,C.green) end)
+		ctxBtn("speed: 60", function() S.FlySpeed=60 Notify("fly speed 60",1.2,C.green) end)
+		ctxBtn("speed: 100", function() S.FlySpeed=100 Notify("fly speed 100",1.2,C.green) end)
+		ctxBtn("speed: 200", function() S.FlySpeed=200 Notify("fly speed 200",1.2,C.green) end)
+	end
+	
+	if featureId=="WS" then
+		local wsLabel=Instance.new("TextLabel",Ctx)
+		wsLabel.Size=UDim2.new(1,0,0,16) wsLabel.BackgroundTransparency=1
+		wsLabel.Text="— walkspeed" wsLabel.Font=Enum.Font.Code wsLabel.TextSize=10 wsLabel.TextColor3=C.dim wsLabel.TextXAlignment=Enum.TextXAlignment.Left
+		ctxBtn("speed: 25", function() S.WSVal=25 Notify("ws 25",1.2,C.green) end)
+		ctxBtn("speed: 50", function() S.WSVal=50 Notify("ws 50",1.2,C.green) end)
+		ctxBtn("speed: 100", function() S.WSVal=100 Notify("ws 100",1.2,C.green) end)
+		ctxBtn("speed: 200", function() S.WSVal=200 Notify("ws 200",1.2,C.green) end)
+	end
+	
+	if featureId=="JP" then
+		local jpLabel=Instance.new("TextLabel",Ctx)
+		jpLabel.Size=UDim2.new(1,0,0,16) jpLabel.BackgroundTransparency=1
+		jpLabel.Text="— jump" jpLabel.Font=Enum.Font.Code jpLabel.TextSize=10 jpLabel.TextColor3=C.dim jpLabel.TextXAlignment=Enum.TextXAlignment.Left
+		ctxBtn("power: 50", function() S.JPVal=50 Notify("jp 50",1.2,C.green) end)
+		ctxBtn("power: 100", function() S.JPVal=100 Notify("jp 100",1.2,C.green) end)
+		ctxBtn("power: 200", function() S.JPVal=200 Notify("jp 200",1.2,C.green) end)
+		ctxBtn("power: 400", function() S.JPVal=400 Notify("jp 400",1.2,C.green) end)
+	end
+	
+	if featureId=="FOV" then
+		local fovLabel=Instance.new("TextLabel",Ctx)
+		fovLabel.Size=UDim2.new(1,0,0,16) fovLabel.BackgroundTransparency=1
+		fovLabel.Text="— fov" fovLabel.Font=Enum.Font.Code fovLabel.TextSize=10 fovLabel.TextColor3=C.dim fovLabel.TextXAlignment=Enum.TextXAlignment.Left
+		ctxBtn("fov: 70", function() S.FOVVal=70 Notify("fov 70",1.2,C.green) end)
+		ctxBtn("fov: 100", function() S.FOVVal=100 Notify("fov 100",1.2,C.green) end)
+		ctxBtn("fov: 120", function() S.FOVVal=120 Notify("fov 120",1.2,C.green) end)
+	end
+	
+	if featureId=="ThirdP" then
+		local tpLabel=Instance.new("TextLabel",Ctx)
+		tpLabel.Size=UDim2.new(1,0,0,16) tpLabel.BackgroundTransparency=1
+		tpLabel.Text="— 3rd person" tpLabel.Font=Enum.Font.Code tpLabel.TextSize=10 tpLabel.TextColor3=C.dim tpLabel.TextXAlignment=Enum.TextXAlignment.Left
+		ctxBtn("distance: 10", function() S.ThirdDist=10 if S.ThirdP then enableThirdPerson(10) end Notify("3rd dist 10",1.2,C.green) end)
+		ctxBtn("distance: 14", function() S.ThirdDist=14 if S.ThirdP then enableThirdPerson(14) end Notify("3rd dist 14",1.2,C.green) end)
+		ctxBtn("distance: 20", function() S.ThirdDist=20 if S.ThirdP then enableThirdPerson(20) end Notify("3rd dist 20",1.2,C.green) end)
+		ctxBtn("distance: 30", function() S.ThirdDist=30 if S.ThirdP then enableThirdPerson(30) end Notify("3rd dist 30",1.2,C.green) end)
+	end
+	
+	-- Reset option
+	ctxBtn("reset to default", function()
+		ft.color = C.accent
+		ft.bind = nil
+		ft.settings = {}
+		ft.customValues = {}
+		Notify(label.." reset", 1.2, C.green)
+	end)
+	
 	ctxBtn("close", function() end)
 	local ap = anchorFrame.AbsolutePosition
 	local as = anchorFrame.AbsoluteSize
@@ -591,6 +726,7 @@ end)
 
 Registry = { Toggles={}, Binds={}, BindUI={} }
 local waitingBind=nil
+local waitingFeatBind=nil
 
 local function Toggle(tab, label, id, default, onSet)
 	local f=Instance.new("Frame",tab.page)
@@ -658,7 +794,7 @@ local function BindRow(tab, label, id)
 	local b=Instance.new("TextButton",tab.page)
 	b.Size=UDim2.new(1,-4,0,28) b.BackgroundColor3=C.elem b.BorderSizePixel=0 b.Font=Enum.Font.Code b.TextSize=12 b.TextColor3=C.text corner(b,5)
 	local function refresh()
-		local k=Registry.Binds[id]
+		local k = (Feat[id] and Feat[id].bind) or Registry.Binds[id]
 		b.Text=string.format("%s   [%s]", label, k and tostring(k):gsub("Enum.KeyCode.","") or "NONE")
 		b.TextColor3=C.text
 	end
@@ -1655,8 +1791,20 @@ UIS.InputBegan:Connect(function(input, gp)
 	if waitingBind then
 		local id=waitingBind waitingBind=nil
 		Registry.Binds[id]=input.KeyCode
+		-- Also update per-feature bind if it's a feature
+		if Registry.Toggles[id] then
+			Feat[id] = Feat[id] or ensureFeat(id)
+			Feat[id].bind = input.KeyCode
+		end
 		if Registry.BindUI[id] then Registry.BindUI[id]() end
 		Notify("bound "..tostring(input.KeyCode):gsub("Enum.KeyCode.",""),2,C.green)
+		return
+	end
+	if waitingFeatBind then
+		local id=waitingFeatBind waitingFeatBind=nil
+		Feat[id] = Feat[id] or ensureFeat(id)
+		Feat[id].bind = input.KeyCode
+		Notify("bound "..tostring(input.KeyCode):gsub("Enum.KeyCode.","").." to "..id,2,C.green)
 		return
 	end
 	local key=input.KeyCode
@@ -1667,10 +1815,20 @@ UIS.InputBegan:Connect(function(input, gp)
 		if r and cam then r.CFrame = r.CFrame + cam.CFrame.LookVector * S.DashDist Notify("dash",0.8,C.green) end
 		return
 	end
+	-- Check per-feature binds first
+	for id, feat in pairs(Feat) do
+		if feat.bind == key and Registry.Toggles[id] then
+			local tog=Registry.Toggles[id]
+			if tog then tog.set(not tog.get(), true) end
+			return
+		end
+	end
+	-- Fall back to legacy bind map
 	for bindId, toggleId in pairs(bindMap) do
 		if Registry.Binds[bindId]==key then
 			local tog=Registry.Toggles[toggleId]
 			if tog then tog.set(not tog.get(), true) end
+			return
 		end
 	end
 end)
