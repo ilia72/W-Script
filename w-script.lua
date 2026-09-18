@@ -28,6 +28,48 @@ local C = {
 	text = Color3.fromRGB(235,235,242), dim = Color3.fromRGB(125,125,140),
 	red = Color3.fromRGB(235,65,65), green = Color3.fromRGB(65,215,115), orange = Color3.fromRGB(255,165,50),
 }
+
+-- Themes
+local Themes = {
+	Default = {
+		bg = Color3.fromRGB(16,16,20), panel = Color3.fromRGB(24,24,30), elem = Color3.fromRGB(32,32,40),
+		accent = Color3.fromRGB(110,130,240), off = Color3.fromRGB(50,50,62),
+		text = Color3.fromRGB(235,235,242), dim = Color3.fromRGB(125,125,140),
+	},
+	Midnight = {
+		bg = Color3.fromRGB(10,10,15), panel = Color3.fromRGB(18,18,25), elem = Color3.fromRGB(26,26,35),
+		accent = Color3.fromRGB(90,110,220), off = Color3.fromRGB(40,40,55),
+		text = Color3.fromRGB(220,220,230), dim = Color3.fromRGB(110,110,125),
+	},
+	Neon = {
+		bg = Color3.fromRGB(8,8,12), panel = Color3.fromRGB(15,15,22), elem = Color3.fromRGB(22,22,32),
+		accent = Color3.fromRGB(0,255,200), off = Color3.fromRGB(35,35,50),
+		text = Color3.fromRGB(240,240,255), dim = Color3.fromRGB(120,120,140),
+	},
+	Purple = {
+		bg = Color3.fromRGB(14,10,20), panel = Color3.fromRGB(22,16,30), elem = Color3.fromRGB(30,22,40),
+		accent = Color3.fromRGB(180,100,255), off = Color3.fromRGB(45,35,60),
+		text = Color3.fromRGB(230,220,245), dim = Color3.fromRGB(130,115,150),
+	},
+	Red = {
+		bg = Color3.fromRGB(20,12,12), panel = Color3.fromRGB(30,18,18), elem = Color3.fromRGB(40,24,24),
+		accent = Color3.fromRGB(255,80,80), off = Color3.fromRGB(55,35,35),
+		text = Color3.fromRGB(245,220,220), dim = Color3.fromRGB(150,115,115),
+	},
+}
+
+local currentTheme = "Default"
+local function applyTheme(themeName)
+	local theme = Themes[themeName]
+	if not theme then return end
+	currentTheme = themeName
+	for k,v in pairs(theme) do
+		if C[k] ~= nil then C[k] = v end
+	end
+	setAccent(C.accent)
+	Notify("theme: "..themeName, 1.5, C.accent)
+end
+
 local accentObjs = {}
 local function markAccent(o,p) table.insert(accentObjs,{o=o,p=p}) o[p]=C.accent end
 local function setAccent(col)
@@ -50,23 +92,23 @@ Gui.Name="WScript_CFG" Gui.ResetOnSpawn=false Gui.ZIndexBehavior=Enum.ZIndexBeha
 -- NOTIFY
 -- =============================================================================
 local NHold = Instance.new("Frame", Gui)
-NHold.Size=UDim2.new(0,260,1,-20) NHold.Position=UDim2.new(1,-270,0,10) NHold.BackgroundTransparency=1
+NHold.Size=UDim2.new(0,280,1,-20) NHold.Position=UDim2.new(1,-290,0,10) NHold.BackgroundTransparency=1
 Instance.new("UIListLayout", NHold).Padding=UDim.new(0,6)
 local nI=0
 local function Notify(msg,dur,col)
 	dur=dur or 2.2 col=col or C.accent nI=nI+1
 	local card=Instance.new("Frame",NHold)
-	card.Size=UDim2.new(1,0,0,28) card.BackgroundColor3=C.panel card.BackgroundTransparency=1 card.BorderSizePixel=0 card.LayoutOrder=nI
-	corner(card,4)
-	local bar=Instance.new("Frame",card) bar.Size=UDim2.new(0,3,1,-6) bar.Position=UDim2.new(0,3,0,3) bar.BackgroundColor3=col bar.BorderSizePixel=0 corner(bar,2)
-	local l=Instance.new("TextLabel",card) l.Size=UDim2.new(1,-16,1,0) l.Position=UDim2.new(0,12,0,0) l.BackgroundTransparency=1
+	card.Size=UDim2.new(1,0,0,30) card.BackgroundColor3=C.panel card.BackgroundTransparency=1 card.BorderSizePixel=0 card.LayoutOrder=nI
+	corner(card,5)
+	local bar=Instance.new("Frame",card) bar.Size=UDim2.new(0,3,1,-8) bar.Position=UDim2.new(0,4,0,4) bar.BackgroundColor3=col bar.BorderSizePixel=0 corner(bar,2)
+	local l=Instance.new("TextLabel",card) l.Size=UDim2.new(1,-20,1,0) l.Position=UDim2.new(0,14,0,0) l.BackgroundTransparency=1
 	l.Text=msg l.Font=Enum.Font.Code l.TextSize=11 l.TextColor3=C.text l.TextXAlignment=Enum.TextXAlignment.Left l.TextTransparency=1
-	TweenService:Create(card,TweenInfo.new(0.15),{BackgroundTransparency=0.05}):Play()
-	TweenService:Create(l,TweenInfo.new(0.15),{TextTransparency=0}):Play()
+	TweenService:Create(card,TweenInfo.new(0.2),{BackgroundTransparency=0.08}):Play()
+	TweenService:Create(l,TweenInfo.new(0.2),{TextTransparency=0}):Play()
 	task.delay(dur,function()
-		TweenService:Create(card,TweenInfo.new(0.2),{BackgroundTransparency=1}):Play()
-		TweenService:Create(l,TweenInfo.new(0.2),{TextTransparency=1}):Play()
-		task.wait(0.22) card:Destroy()
+		TweenService:Create(card,TweenInfo.new(0.25),{BackgroundTransparency=1}):Play()
+		TweenService:Create(l,TweenInfo.new(0.25),{TextTransparency=1}):Play()
+		task.wait(0.25) card:Destroy()
 	end)
 end
 
@@ -521,30 +563,89 @@ end
 -- UI SHELL
 -- =============================================================================
 local Main = Instance.new("Frame", Gui)
-Main.Size=UDim2.new(0,600,0,460) Main.Position=UDim2.new(0.5,-300,0.5,-230)
-Main.BackgroundColor3=C.bg Main.BorderSizePixel=0 Main.Active=true Main.ClipsDescendants=true corner(Main,8)
+Main.Size=UDim2.new(0,620,0,480) Main.Position=UDim2.new(0.5,-310,0.5,-240)
+Main.BackgroundColor3=C.bg Main.BorderSizePixel=0 Main.Active=true Main.ClipsDescendants=true corner(Main,10)
 
 local noise=Instance.new("ImageLabel",Main)
-noise.Size=UDim2.new(1,0,1,0) noise.BackgroundTransparency=1 noise.ImageTransparency=0.94
+noise.Size=UDim2.new(1,0,1,0) noise.BackgroundTransparency=1 noise.ImageTransparency=0.92
 noise.ScaleType=Enum.ScaleType.Tile noise.TileSize=UDim2.new(0,48,0,48) noise.Image="rbxassetid://6372755229" noise.ZIndex=0
 
 local Top=Instance.new("Frame",Main)
-Top.Size=UDim2.new(1,0,0,30) Top.BackgroundColor3=C.panel Top.BorderSizePixel=0 corner(Top,8) drag(Main,Top)
+Top.Size=UDim2.new(1,0,0,36) Top.BackgroundColor3=C.panel Top.BorderSizePixel=0 corner(Top,10) drag(Main,Top)
+
+-- Avatar
+local AvatarFrame = Instance.new("Frame", Top)
+AvatarFrame.Size = UDim2.new(0, 26, 0, 26)
+AvatarFrame.Position = UDim2.new(0, 8, 0.5, -13)
+AvatarFrame.BackgroundColor3 = C.accent
+corner(AvatarFrame, 6)
+
+local AvatarImg = Instance.new("ImageLabel", AvatarFrame)
+AvatarImg.Size = UDim2.new(1, 0, 1, 0)
+AvatarImg.BackgroundTransparency = 1
+AvatarImg.Image = "rbxassetid://1679615928" -- default avatar
+AvatarImg.ScaleType = Enum.ScaleType.Crop
+corner(AvatarImg, 6)
 
 local Title=Instance.new("TextLabel",Top)
-Title.Size=UDim2.new(1,-40,1,0) Title.Position=UDim2.new(0,12,0,0) Title.BackgroundTransparency=1
-Title.Text="w-script  //  cfg + silent" Title.Font=Enum.Font.Code Title.TextSize=13 Title.TextColor3=C.dim Title.TextXAlignment=Enum.TextXAlignment.Left
+Title.Size=UDim2.new(1,-80,1,0) Title.Position=UDim2.new(0, 42, 0, 0) Title.BackgroundTransparency=1
+Title.Text="w-script  //  v4.0" Title.Font=Enum.Font.Code Title.TextSize=13 Title.TextColor3=C.dim Title.TextXAlignment=Enum.TextXAlignment.Left
+
+local StatusDot = Instance.new("Frame", Top)
+StatusDot.Size = UDim2.new(0, 8, 0, 8)
+StatusDot.Position = UDim2.new(0, 30, 0.5, -4)
+StatusDot.BackgroundColor3 = C.green
+corner(StatusDot, 4)
 
 local XBtn=Instance.new("TextButton",Top)
-XBtn.Size=UDim2.new(0,30,0,30) XBtn.Position=UDim2.new(1,-30,0,0) XBtn.BackgroundTransparency=1
-XBtn.Text="x" XBtn.Font=Enum.Font.Code XBtn.TextSize=16 XBtn.TextColor3=C.dim XBtn.Modal=true
+XBtn.Size=UDim2.new(0,32,0,32) XBtn.Position=UDim2.new(1,-32,0,2) XBtn.BackgroundTransparency=1
+XBtn.Text="✕" XBtn.Font=Enum.Font.Code XBtn.TextSize=14 XBtn.TextColor3=C.dim XBtn.Modal=true
 
 local Side=Instance.new("Frame",Main)
-Side.Size=UDim2.new(0,118,1,-30) Side.Position=UDim2.new(0,0,0,30) Side.BackgroundColor3=C.panel Side.BorderSizePixel=0
-Instance.new("UIListLayout",Side).Padding=UDim.new(0,2)
+Side.Size=UDim2.new(0,120,1,-36) Side.Position=UDim2.new(0,0,0,36) Side.BackgroundColor3=C.panel Side.BorderSizePixel=0
+corner(Side, 0)
+Instance.new("UIListLayout",Side).Padding=UDim.new(0,3)
+
+-- Profile section at top of sidebar
+local ProfileFrame = Instance.new("Frame", Side)
+ProfileFrame.Size = UDim2.new(1,-8,0,70)
+ProfileFrame.Position = UDim2.new(0,4,0,4)
+ProfileFrame.BackgroundColor3 = C.elem
+ProfileFrame.BorderSizePixel=0
+corner(ProfileFrame, 6)
+
+local ProfileAvatar = Instance.new("ImageLabel", ProfileFrame)
+ProfileAvatar.Size = UDim2.new(0, 36, 0, 36)
+ProfileAvatar.Position = UDim2.new(0, 8, 0, 4)
+ProfileAvatar.BackgroundColor3 = C.accent
+ProfileAvatar.Image = "rbxassetid://1679615928"
+ProfileAvatar.ScaleType = Enum.ScaleType.Crop
+corner(ProfileAvatar, 8)
+
+local ProfileName = Instance.new("TextLabel", ProfileFrame)
+ProfileName.Size = UDim2.new(1,-52, 0, 18)
+ProfileName.Position = UDim2.new(0, 50, 0, 6)
+ProfileName.BackgroundTransparency = 1
+ProfileName.Font = Enum.Font.Code
+ProfileName.TextSize = 11
+ProfileName.TextColor3 = C.text
+ProfileName.TextXAlignment = Enum.TextXAlignment.Left
+ProfileName.Text = LP.Name
+ProfileName.TextWrapped = true
+
+local ProfileDisplayName = Instance.new("TextLabel", ProfileFrame)
+ProfileDisplayName.Size = UDim2.new(1,-52, 0, 16)
+ProfileDisplayName.Position = UDim2.new(0, 50, 0, 24)
+ProfileDisplayName.BackgroundTransparency = 1
+ProfileDisplayName.Font = Enum.Font.Code
+ProfileDisplayName.TextSize = 9
+ProfileDisplayName.TextColor3 = C.dim
+ProfileDisplayName.TextXAlignment = Enum.TextXAlignment.Left
+ProfileDisplayName.Text = "@"..LP.DisplayName
+ProfileDisplayName.TextWrapped = true
 
 local Content=Instance.new("Frame",Main)
-Content.BackgroundTransparency=1 Content.Position=UDim2.new(0,124,0,36) Content.Size=UDim2.new(1,-132,1,-44)
+Content.BackgroundTransparency=1 Content.Position=UDim2.new(0,126,0,80) Content.Size=UDim2.new(1,-136,1,-88)
 
 local tabs={}
 local function makeTab(name)
@@ -559,8 +660,14 @@ local function makeTab(name)
 	Instance.new("UIListLayout",page).Padding=UDim.new(0,4)
 	local t={btn=btn,page=page} table.insert(tabs,t)
 	btn.MouseButton1Click:Connect(function()
-		for _,x in ipairs(tabs) do x.page.Visible=false x.btn.BackgroundTransparency=1 x.btn.TextColor3=C.dim end
-		page.Visible=true btn.BackgroundTransparency=0.15 btn.TextColor3=C.text
+		for _,x in ipairs(tabs) do 
+			x.page.Visible=false 
+			x.btn.BackgroundTransparency=1 
+			x.btn.TextColor3=C.dim 
+		end
+		page.Visible=true 
+		TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundTransparency=0.15}):Play()
+		TweenService:Create(btn, TweenInfo.new(0.15), {TextColor3=C.text}):Play()
 	end)
 	return t
 end
@@ -594,6 +701,25 @@ local function openCustomize(featureId, label, anchorFrame)
 	local title=Instance.new("TextLabel",Ctx)
 	title.Size=UDim2.new(1,0,0,20) title.BackgroundTransparency=1
 	title.Text="customize: "..label title.Font=Enum.Font.Code title.TextSize=11 title.TextColor3=C.dim title.TextXAlignment=Enum.TextXAlignment.Left
+	
+	-- Avatar section (for menu/misc)
+	if featureId=="Menu" or featureId=="WM" or featureId=="Stats" then
+		local avatarLabel=Instance.new("TextLabel",Ctx)
+		avatarLabel.Size=UDim2.new(1,0,0,16) avatarLabel.BackgroundTransparency=1
+		avatarLabel.Text="— avatar" avatarLabel.Font=Enum.Font.Code avatarLabel.TextSize=10 avatarLabel.TextColor3=C.dim avatarLabel.TextXAlignment=Enum.TextXAlignment.Left
+		ctxBtn("avatar: default", function() AvatarImg.Image="rbxassetid://1679615928" Notify("avatar default",1.2,C.green) end)
+		ctxBtn("avatar: skull", function() AvatarImg.Image="rbxassetid://1612747883" Notify("avatar skull",1.2,C.green) end)
+		ctxBtn("avatar: cool", function() AvatarImg.Image="rbxassetid://616608488" Notify("avatar cool",1.2,C.green) end)
+		ctxBtn("avatar: gaming", function() AvatarImg.Image="rbxassetid://5877528972" Notify("avatar gaming",1.2,C.green) end)
+		ctxBtn("avatar: custom url...", function()
+			hideCtx()
+			local url = game:GetService("GuiService"):PromptForInputAsync("Enter image URL", LP.PlayerGui)
+			if url and url~="" then
+				AvatarImg.Image = url
+				Notify("avatar set",1.2,C.green)
+			end
+		end)
+	end
 	
 	-- Bind section
 	local bindLabel=Instance.new("TextLabel",Ctx)
@@ -1039,6 +1165,12 @@ section(tMisc,"sound")
 Toggle(tMisc,"sound control","SoundControl",false,function(v) S.SoundControl=v end)
 Slider(tMisc,"sound volume",0,100,30,function(v) S.SoundVolume=v/100 end)
 Btn(tMisc,"discord", function() if not S.DiscordCopied then pcall(setclipboard, "https://discord.gg/JbdzBnu8fP") S.DiscordCopied=true Notify("discord link copied!",2,C.green) else Notify("already copied",1.5,C.orange) end end)
+section(tMisc,"theme")
+Btn(tMisc,"theme: default", function() applyTheme("Default") end)
+Btn(tMisc,"theme: midnight", function() applyTheme("Midnight") end)
+Btn(tMisc,"theme: neon", function() applyTheme("Neon") end)
+Btn(tMisc,"theme: purple", function() applyTheme("Purple") end)
+Btn(tMisc,"theme: red", function() applyTheme("Red") end)
 section(tMisc,"panic")
 Btn(tMisc,"DISABLE ALL", function()
 	for _,tog in pairs(Registry.Toggles) do if tog.get() then tog.set(false,false) end end
@@ -1360,7 +1492,9 @@ RunService.RenderStepped:Connect(function(dt)
 				end
 			end
 		end
-		if S.FOV and cam.FieldOfView ~= S.FOVVal then cam.FieldOfView=S.FOVVal end
+		if S.FOV and cam.FieldOfView ~= S.FOVVal then 
+			TweenService:Create(cam, TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {FieldOfView=S.FOVVal}):Play()
+		end
 		if S.ThirdP then
 			LP.CameraMode = Enum.CameraMode.Classic
 			local d = S.ThirdDist
@@ -1782,7 +1916,18 @@ pcall(function()
 end)
 
 local open=true
-local function setMenu(v) open=v Main.Visible=v XBtn.Modal=v end
+local function setMenu(v) 
+	open=v 
+	Main.Visible=v 
+	XBtn.Modal=v 
+	if v then
+		Main.Size = UDim2.new(0,0,0,0)
+		TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+			Size = UDim2.new(0,620,0,480)
+		}):Play()
+		Main.Position = UDim2.new(0.5,-310,0.5,-240)
+	end
+end
 setMenu(true)
 XBtn.MouseButton1Click:Connect(function() setMenu(false) end)
 
