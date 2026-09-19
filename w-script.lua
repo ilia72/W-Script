@@ -104,6 +104,13 @@ local function hover(o, base, light)
 	end)
 end
 
+-- Accent glow stroke on hover (reads live theme colors)
+local function hoverStroke(o)
+	local st=Instance.new("UIStroke",o) st.Color=C.off st.Thickness=1 st.Transparency=0.6
+	o.MouseEnter:Connect(function() TweenService:Create(st,TweenInfo.new(0.12),{Color=C.accent,Transparency=0.15}):Play() end)
+	o.MouseLeave:Connect(function() TweenService:Create(st,TweenInfo.new(0.15),{Color=C.off,Transparency=0.6}):Play() end)
+end
+
 -- =============================================================================
 -- NOTIFY
 -- =============================================================================
@@ -116,6 +123,7 @@ Notify = function(msg,dur,col)
 	local card=Instance.new("Frame",NHold)
 	card.Size=UDim2.new(1,0,0,30) card.BackgroundColor3=C.panel card.BackgroundTransparency=1 card.BorderSizePixel=0 card.LayoutOrder=nI
 	corner(card,5)
+	local nst=Instance.new("UIStroke",card) nst.Color=C.off nst.Thickness=1 nst.Transparency=0.7
 	local bar=Instance.new("Frame",card) bar.Size=UDim2.new(0,3,1,-8) bar.Position=UDim2.new(0,4,0,4) bar.BackgroundColor3=col bar.BorderSizePixel=0 corner(bar,2)
 	local l=Instance.new("TextLabel",card) l.Size=UDim2.new(1,-20,1,0) l.Position=UDim2.new(0,14,0,0) l.BackgroundTransparency=1
 	l.Text=msg l.Font=Enum.Font.Code l.TextSize=11 l.TextColor3=C.text l.TextXAlignment=Enum.TextXAlignment.Left l.TextTransparency=1
@@ -801,7 +809,7 @@ corner(AvatarImg, 6)
 
 local Title=Instance.new("TextLabel",Top)
 Title.Size=UDim2.new(1,-80,1,0) Title.Position=UDim2.new(0, 42, 0, 0) Title.BackgroundTransparency=1
-Title.RichText=true Title.Text='<font color="#6e82f0"><b>w-script</b></font>  //  v4.2' Title.Font=Enum.Font.Code Title.TextSize=13 Title.TextColor3=C.dim Title.TextXAlignment=Enum.TextXAlignment.Left
+Title.RichText=true Title.Text='<font color="#6e82f0"><b>W-SCRIPT</b></font>  //  v5.0' Title.Font=Enum.Font.GothamBold Title.TextSize=14 Title.TextColor3=C.dim Title.TextXAlignment=Enum.TextXAlignment.Left
 
 local StatusDot = Instance.new("Frame", Top)
 StatusDot.Size = UDim2.new(0, 8, 0, 8)
@@ -909,7 +917,10 @@ ProfileBtn.MouseButton1Click:Connect(function()
 end)
 
 local Content=Instance.new("Frame",Main)
-Content.BackgroundTransparency=1 Content.Position=UDim2.new(0,128,0,44) Content.Size=UDim2.new(1,-138,1,-52)
+Content.BackgroundTransparency=1 Content.Position=UDim2.new(0,128,0,44) Content.Size=UDim2.new(1,-138,1,-62)
+local FootHint=Instance.new("TextLabel",Main)
+FootHint.Size=UDim2.new(1,-148,0,12) FootHint.Position=UDim2.new(0,128,1,-16) FootHint.BackgroundTransparency=1
+FootHint.Text="K — menu      RMB — customize      Insert — loader" FootHint.Font=Enum.Font.Code FootHint.TextSize=10 FootHint.TextColor3=C.dim FootHint.TextTransparency=0.4 FootHint.TextXAlignment=Enum.TextXAlignment.Right
 
 local tabs={}
 local function selectTab(t)
@@ -921,8 +932,11 @@ local function selectTab(t)
 	end
 	t.page.Visible=true
 	TweenService:Create(t.btn, TweenInfo.new(0.15), {BackgroundTransparency=0.15}):Play()
-	TweenService:Create(t.btn, TweenInfo.new(0.15), {TextColor3=C.text}):Play()
+	TweenService:Create(t.btn, TweenInfo.new(0.15), {TextColor3=C.accent}):Play()
 	if t.ind then t.ind.Visible=true end
+	-- premium slide-in for page content
+	t.page.Position=UDim2.new(0,10,0,0)
+	TweenService:Create(t.page, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position=UDim2.new(0,0,0,0)}):Play()
 end
 local function makeTab(name)
 	local btn=Instance.new("TextButton",Side)
@@ -965,7 +979,7 @@ local function section(tab, text)
 	local f=Instance.new("Frame",tab.page) f.Size=UDim2.new(1,-4,0,20) f.BackgroundTransparency=1
 	local bar=Instance.new("Frame",f) bar.Size=UDim2.new(0,3,0,12) bar.Position=UDim2.new(0,2,0.5,-6) bar.BorderSizePixel=0 corner(bar,2) markAccent(bar,"BackgroundColor3")
 	local l=Instance.new("TextLabel",f) l.Size=UDim2.new(1,-32,1,0) l.Position=UDim2.new(0,10,0,0) l.BackgroundTransparency=1
-	l.Text=text:upper() l.Font=Enum.Font.Code l.TextSize=11 l.TextColor3=C.text l.TextTransparency=0.25 l.TextXAlignment=Enum.TextXAlignment.Left
+	l.Text=text:upper() l.Font=Enum.Font.GothamBold l.TextSize=11 l.TextColor3=C.text l.TextTransparency=0.15 l.TextXAlignment=Enum.TextXAlignment.Left
 	local plus=Instance.new("TextLabel",f) plus.Size=UDim2.new(0,20,1,0) plus.Position=UDim2.new(1,-24,0,0) plus.BackgroundTransparency=1
 	plus.Text="–" plus.Font=Enum.Font.Code plus.TextSize=14 plus.TextColor3=C.dim plus.TextXAlignment=Enum.TextXAlignment.Right
 	tab._secs = tab._secs or {}
@@ -1197,7 +1211,7 @@ waitingFeatBind=nil
 local function Toggle(tab, label, id, default, onSet)
 	local f=Instance.new("Frame",tab.page)
 	f.Size=UDim2.new(1,-4,0,28) f.BackgroundColor3=C.elem f.BackgroundTransparency=0.2 f.BorderSizePixel=0 corner(f,5)
-	local fst=Instance.new("UIStroke",f) fst.Color=C.off fst.Thickness=1 fst.Transparency=0.6
+	hover(f) hoverStroke(f)
 	local l=Instance.new("TextLabel",f)
 	l.BackgroundTransparency=1 l.Position=UDim2.new(0,10,0,0) l.Size=UDim2.new(1,-50,1,0)
 	l.Font=Enum.Font.Code l.TextSize=12 l.TextColor3=C.text l.TextXAlignment=Enum.TextXAlignment.Left l.Text=label
@@ -1205,15 +1219,15 @@ local function Toggle(tab, label, id, default, onSet)
 	tip.Size=UDim2.new(0,28,1,0) tip.Position=UDim2.new(1,-78,0,0) tip.BackgroundTransparency=1
 	tip.Text="RMB" tip.Font=Enum.Font.Code tip.TextSize=9 tip.TextColor3=C.dim tip.TextXAlignment=Enum.TextXAlignment.Right
 	local sw=Instance.new("TextButton",f)
-	sw.Size=UDim2.new(0,30,0,15) sw.Position=UDim2.new(1,-40,0.5,-7) sw.BackgroundColor3=C.off sw.Text="" corner(sw,8)
-	local dot=Instance.new("Frame",sw) dot.Size=UDim2.new(0,11,0,11) dot.Position=UDim2.new(0,2,0,2) dot.BackgroundColor3=C.text corner(dot,6)
+	sw.Size=UDim2.new(0,34,0,17) sw.Position=UDim2.new(1,-42,0.5,-8.5) sw.BackgroundColor3=C.off sw.Text="" sw.AutoButtonColor=false corner(sw,9)
+	local dot=Instance.new("Frame",sw) dot.Size=UDim2.new(0,13,0,13) dot.Position=UDim2.new(0,2,0,2) dot.BackgroundColor3=C.text corner(dot,7)
 	local state=false
 	local function apply(v, viaBind)
 		v = v and true or false
 		state=v
 		if id then S[id]=v end
 		TweenService:Create(sw,TweenInfo.new(0.12),{BackgroundColor3=state and C.accent or C.off}):Play()
-		TweenService:Create(dot,TweenInfo.new(0.12),{Position=state and UDim2.new(1,-13,0,2) or UDim2.new(0,2,0,2)}):Play()
+		TweenService:Create(dot,TweenInfo.new(0.12),{Position=state and UDim2.new(1,-15,0,2) or UDim2.new(0,2,0,2)}):Play()
 		if id=="ThirdP" then
 			if state then enableThirdPerson(S.ThirdDist) else disableThirdPerson() end
 		else
@@ -1240,18 +1254,20 @@ end
 local function Slider(tab, label, min, max, default, cb)
 	local f=Instance.new("Frame",tab.page)
 	f.Size=UDim2.new(1,-4,0,40) f.BackgroundColor3=C.elem f.BackgroundTransparency=0.2 f.BorderSizePixel=0 corner(f,5)
-	local fst=Instance.new("UIStroke",f) fst.Color=C.off fst.Thickness=1 fst.Transparency=0.6
+	hover(f) hoverStroke(f)
 	local l=Instance.new("TextLabel",f) l.BackgroundTransparency=1 l.Position=UDim2.new(0,10,0,3) l.Size=UDim2.new(1,-60,0,16)
 	l.Font=Enum.Font.Code l.TextSize=11 l.TextColor3=C.text l.TextXAlignment=Enum.TextXAlignment.Left l.Text=label
 	local v=Instance.new("TextLabel",f) v.BackgroundTransparency=1 v.Position=UDim2.new(1,-50,0,3) v.Size=UDim2.new(0,42,0,16)
 	v.Font=Enum.Font.Code v.TextSize=11 v.TextColor3=C.accent v.TextXAlignment=Enum.TextXAlignment.Right v.Text=tostring(default) markAccent(v,"TextColor3")
 	local bar=Instance.new("Frame",f) bar.Size=UDim2.new(1,-20,0,6) bar.Position=UDim2.new(0,10,0,24) bar.BackgroundColor3=C.off bar.BorderSizePixel=0 corner(bar,3)
 	local fill=Instance.new("Frame",bar) fill.Size=UDim2.new((default-min)/(max-min),0,1,0) fill.BackgroundColor3=C.accent fill.BorderSizePixel=0 corner(fill,3) markAccent(fill,"BackgroundColor3")
+	local knob=Instance.new("Frame",bar) knob.Size=UDim2.new(0,12,0,12) knob.Position=UDim2.new((default-min)/(max-min),-6,0.5,-6) knob.BackgroundColor3=C.text knob.BorderSizePixel=0 corner(knob,6)
+	local knobSt=Instance.new("UIStroke",knob) knobSt.Color=C.accent knobSt.Thickness=1.5 markAccent(knobSt,"Color")
 	local dragging=false
 	local function upd(i)
 		local rel=math.clamp((i.Position.X-bar.AbsolutePosition.X)/math.max(bar.AbsoluteSize.X,1),0,1)
 		local val=math.floor(min+rel*(max-min))
-		fill.Size=UDim2.new(rel,0,1,0) v.Text=tostring(val) cb(val)
+		fill.Size=UDim2.new(rel,0,1,0) knob.Position=UDim2.new(rel,-6,0.5,-6) v.Text=tostring(val) cb(val)
 	end
 	bar.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true upd(i) end end)
 	UIS.InputChanged:Connect(function(i) if dragging and i.UserInputType==Enum.UserInputType.MouseMovement then upd(i) end end)
@@ -1263,7 +1279,7 @@ local function Btn(tab, label, cb)
 	local b=Instance.new("TextButton",tab.page)
 	b.Size=UDim2.new(1,-4,0,28) b.BackgroundColor3=C.elem b.BackgroundTransparency=0.15 b.BorderSizePixel=0 b.AutoButtonColor=false
 	b.Text=label b.Font=Enum.Font.Code b.TextSize=12 b.TextColor3=C.text corner(b,5)
-	hover(b)
+	hover(b) hoverStroke(b)
 	b.MouseEnter:Connect(function() TweenService:Create(b,TweenInfo.new(0.12),{TextColor3=C.accent}):Play() end)
 	b.MouseLeave:Connect(function() TweenService:Create(b,TweenInfo.new(0.15),{TextColor3=C.text}):Play() end)
 	b.MouseButton1Click:Connect(cb)
@@ -1273,7 +1289,7 @@ end
 local function BindRow(tab, label, id)
 	local b=Instance.new("TextButton",tab.page)
 	b.Size=UDim2.new(1,-4,0,28) b.BackgroundColor3=C.elem b.BackgroundTransparency=0.15 b.BorderSizePixel=0 b.AutoButtonColor=false b.Font=Enum.Font.Code b.TextSize=12 b.TextColor3=C.text corner(b,5)
-	hover(b)
+	hover(b) hoverStroke(b)
 	local function refresh()
 		local k = (Feat[id] and Feat[id].bind) or Registry.Binds[id]
 		b.Text=string.format("%s   [%s]", label, k and tostring(k):gsub("Enum.KeyCode.","") or "NONE")
@@ -1646,7 +1662,7 @@ LTitle.Size = UDim2.new(1, -40, 1, 0)
 LTitle.Position = UDim2.new(0, 12, 0, 0)
 LTitle.BackgroundTransparency = 1
 LTitle.Text = "w-script  //  loader"
-LTitle.Font = Enum.Font.Code
+LTitle.Font = Enum.Font.GothamBold
 LTitle.TextSize = 13
 LTitle.TextColor3 = C.dim
 LTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -2462,4 +2478,4 @@ UIS.InputBegan:Connect(function(input, gp)
 end)
 
 
-Notify("loaded v4.2 | "..#SearchItems.." funcs in "..#tabs.." tabs | K menu | search, collapse, RMB", 4, C.green)
+Notify("loaded v5.0 | "..#SearchItems.." funcs in "..#tabs.." tabs | K menu | search, collapse, RMB", 4, C.green)
