@@ -130,7 +130,7 @@ local S = {
 	FOV=false, FOVVal=100, ThirdP=false, ThirdDist=14, Bob=false,
 
 	ESP=false, Box=false, NameESP=false, HP=false, Tracer=false, RGBEsp=false,
-	EspColor = Color3.fromRGB(255,75,75),
+	ESPAll=false, EspColor = Color3.fromRGB(255,75,75),
 	Skeleton=false, DistanceESP=false, AntiAim=false, AntiAimYaw=180, Invisible=false, NameHP=false,
 	BoxLines=false, TopInfo=false, BottomInfo=false,
 	ScreenGlitch=false, ScreenChroma=false, ScreenVignette=false,
@@ -144,7 +144,8 @@ local S = {
 
 	Camp=false, CampDist=12, AntiTeleport=false, AntiKick=false, AutoPickup=false,
 	AutoSteal=false, AutoStealDelay=0.2, FakeName=false, FakeLatency=false,
-	_triggerT=0, _stealT=0, _triggerDelay=0,
+	AutoRejoin=false, AutoRejoinDelay=10, FreezePlayers=false, VehicleBoost=false, VehicleBoostVal=100,
+	_triggerT=0, _stealT=0, _triggerDelay=0, _rejoinT=0, _pickupT=0, _nameT=0, _latencyT=0,
 
 	RGBUI=false, Cross=false, WM=false, Stats=false, BindList=true, AntiAFK=true,
 
@@ -197,11 +198,13 @@ local function setFeatCustomValue(id, key, value)
 end
 
 local Def = {
-	WS=16, JP=50, FOV=70, MinZ=0.5, MaxZ=400,
+	WS=16, JP=50, FOV=70, MinZ=0.5, MaxZ=400, Name=LP.Name,
 	Amb=Lighting.Ambient, OAmb=Lighting.OutdoorAmbient, Bri=Lighting.Brightness,
 	FogE=Lighting.FogEnd, FogS=Lighting.FogStart, Clock=Lighting.ClockTime,
 	Shift=Lighting.ColorShift_Top, Sh=Lighting.GlobalShadows,
+	EnvD=Lighting.EnvironmentDiffuseScale, EnvS=Lighting.EnvironmentSpecularScale,
 }
+local fps,acc,xrayT=0,0,0
 
 local hitSave, matSave, xraySave = {}, {}, {}
 local FX = {halo=nil,hat=nil,trail=nil,a0=nil,a1=nil}
@@ -330,9 +333,155 @@ local function resetLight()
 	Lighting.Ambient=Def.Amb Lighting.OutdoorAmbient=Def.OAmb Lighting.Brightness=Def.Bri
 	Lighting.GlobalShadows=Def.Sh Lighting.ColorShift_Top=Def.Shift
 	Lighting.FogEnd=Def.FogE Lighting.FogStart=Def.FogS Lighting.ClockTime=Def.Clock
+	Lighting.EnvironmentDiffuseScale=Def.EnvD Lighting.EnvironmentSpecularScale=Def.EnvS
+end
+local WeatherFolder=Instance.new("Folder",workspace) WeatherFolder.Name="W_Weather"
+local weatherPart=nil
+local weatherKind=nil
+local function clearWeather()
+	if weatherPart and weatherPart.Parent then weatherPart:Destroy() end
+	weatherPart=nil weatherKind=nil
+	WeatherFolder:ClearAllChildren()
+end
+local function ensureWeather(kind)
+	clearWeather()
+	local part=Instance.new("Part",WeatherFolder)
+	part.Name="W_WeatherPart" part.Size=Vector3.new(120,1,120) part.Anchored=true part.CanCollide=false part.CastShadow=false part.Transparency=1
+	local emitter=Instance.new("ParticleEmitter",part)
+	emitter.Name="W_WeatherEmitter" emitter.Texture="rbxasset://textures/particle.png"
+	if kind=="rain" then
+		emitter.Color=ColorSequence.new(Color3.fromRGB(150,190,255)) emitter.Transparency=NumberSequence.new(0.25,0.75)
+		emitter.Size=NumberSequence.new(0.12,0.28) emitter.Speed=NumberRange.new(38,58) emitter.SpreadAngle=Vector2.new(4,4)
+		emitter.Acceleration=Vector3.new(0,-42,0) emitter.Lifetime=NumberRange.new(0.55,0.85) emitter.Rate=1800 emitter.Rotation=NumberRange.new(90,90)
+	else
+		emitter.Color=ColorSequence.new(Color3.fromRGB(255,255,255)) emitter.Transparency=NumberSequence.new(0.1,0.55)
+		emitter.Size=NumberSequence.new(0.18,0.38) emitter.Speed=NumberRange.new(2,6) emitter.SpreadAngle=Vector2.new(360,360)
+		emitter.Acceleration=Vector3.new(0,-1.5,0) emitter.Lifetime=NumberRange.new(2.5,4.5) emitter.Rate=550 emitter.Rotation=NumberRange.new(0,360)
+	end
+	weatherPart=part weatherKind=kind
 end
 local function resetFOV()
 	local cam=workspace.CurrentCamera if cam then cam.FieldOfView=Def.FOV end
+end
+
+local ScreenFx=Instance.new("Frame",Gui)
+ScreenFx.Size=UDim2.new(1,0,1,0) ScreenFx.BackgroundTransparency=1 ScreenFx.Visible=false ScreenFx.ZIndex=90
+local ChromaRed=Instance.new("Frame",ScreenFx)
+ChromaRed.Size=UDim2.new(1,0,1,0) ChromaRed.Position=UDim2.new(0,-3,0,0) ChromaRed.BackgroundColor3=Color3.fromRGB(255,40,70) ChromaRed.BackgroundTransparency=0.86 ChromaRed.BorderSizePixel=0 ChromaRed.Visible=false
+local ChromaCyan=Instance.new("Frame",ScreenFx)
+ChromaCyan.Size=UDim2.new(1,0,1,0) ChromaCyan.Position=UDim2.new(0,3,0,0) ChromaCyan.BackgroundColor3=Color3.fromRGB(0,220,255) ChromaCyan.BackgroundTransparency=0.86 ChromaCyan.BorderSizePixel=0 ChromaCyan.Visible=false
+local VignetteTop=Instance.new("Frame",ScreenFx)
+VignetteTop.Size=UDim2.new(1,0,0,110) VignetteTop.Position=UDim2.new(0,0,0,0) VignetteTop.BackgroundColor3=Color3.fromRGB(0,0,0) VignetteTop.BackgroundTransparency=0.42 VignetteTop.BorderSizePixel=0 VignetteTop.Visible=false
+local VignetteBottom=Instance.new("Frame",ScreenFx)
+VignetteBottom.Size=UDim2.new(1,0,0,110) VignetteBottom.Position=UDim2.new(0,0,1,-110) VignetteBottom.BackgroundColor3=Color3.fromRGB(0,0,0) VignetteBottom.BackgroundTransparency=0.42 VignetteBottom.BorderSizePixel=0 VignetteBottom.Visible=false
+local VignetteLeft=Instance.new("Frame",ScreenFx)
+VignetteLeft.Size=UDim2.new(0,90,1,0) VignetteLeft.Position=UDim2.new(0,0,0,0) VignetteLeft.BackgroundColor3=Color3.fromRGB(0,0,0) VignetteLeft.BackgroundTransparency=0.42 VignetteLeft.BorderSizePixel=0 VignetteLeft.Visible=false
+local VignetteRight=Instance.new("Frame",ScreenFx)
+VignetteRight.Size=UDim2.new(0,90,1,0) VignetteRight.Position=UDim2.new(1,-90,0,0) VignetteRight.BackgroundColor3=Color3.fromRGB(0,0,0) VignetteRight.BackgroundTransparency=0.42 VignetteRight.BorderSizePixel=0 VignetteRight.Visible=false
+local function updateScreenFx()
+	ScreenFx.Visible=S.ScreenChroma or S.ScreenVignette
+	ChromaRed.Visible=S.ScreenChroma
+	ChromaCyan.Visible=S.ScreenChroma
+	VignetteTop.Visible=S.ScreenVignette
+	VignetteBottom.Visible=S.ScreenVignette
+	VignetteLeft.Visible=S.ScreenVignette
+	VignetteRight.Visible=S.ScreenVignette
+end
+updateScreenFx()
+
+local frozenPlayers={}
+local function setPlayerFrozen(player, frozen)
+	local character=player.Character
+	local hrp=character and character:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+	if frozen then
+		if frozenPlayers[player]==nil then frozenPlayers[player]=hrp.Anchored end
+		hrp.Anchored=true
+	else
+		hrp.Anchored=frozenPlayers[player] or false
+		frozenPlayers[player]=nil
+	end
+end
+local function maintainFreezePlayers()
+	for _,player in ipairs(Players:GetPlayers()) do
+		if player~=LP then setPlayerFrozen(player,S.FreezePlayers) end
+	end
+end
+local function setFreezePlayers(frozen)
+	S.FreezePlayers=frozen and true or false
+	maintainFreezePlayers()
+end
+local function nearestPlayer(maxDistance)
+	local myRoot=root()
+	if not myRoot then return nil end
+	local best,bestDistance=nil,maxDistance or math.huge
+	for _,player in ipairs(Players:GetPlayers()) do
+		if player~=LP and player.Character then
+			local target=player.Character:FindFirstChild("HumanoidRootPart")
+			local humanoid=player.Character:FindFirstChildOfClass("Humanoid")
+			if target and humanoid and humanoid.Health>0 then
+				local distance=(myRoot.Position-target.Position).Magnitude
+				if distance<bestDistance then bestDistance=distance best=player end
+			end
+		end
+	end
+	return best,bestDistance
+end
+local function teleportToMouse()
+	if not Mouse.Hit then Notify("mouse position not found",1.5,C.red) return end
+	local myRoot=root()
+	if not myRoot then Notify("character not found",1.5,C.red) return end
+	myRoot.CFrame=CFrame.new(Mouse.Hit.Position+Vector3.new(0,4,0))
+	Notify("teleported to mouse",1.2,C.green)
+end
+local function teleportToNearest()
+	local player=nearestPlayer(1000)
+	local myRoot,target=root(),player and player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if not myRoot or not target then Notify("no player found",1.5,C.red) return end
+	myRoot.CFrame=target.CFrame*CFrame.new(0,0,-5)
+	Notify("teleported to "..player.Name,1.2,C.green)
+end
+local function bringPlayers()
+	local myRoot=root()
+	if not myRoot then return end
+	for _,player in ipairs(Players:GetPlayers()) do
+		if player~=LP and player.Character then
+			local target=player.Character:FindFirstChild("HumanoidRootPart")
+			if target then target.CFrame=myRoot.CFrame*CFrame.new((player.UserId%5)-2,0,-4-(player.UserId%3)) end
+		end
+	end
+	Notify("players brought",1.2,C.green)
+end
+local function resetCharacter()
+	local humanoid=hum()
+	if not humanoid then Notify("character not found",1.5,C.red) return end
+	pcall(function() humanoid:ChangeState(Enum.HumanoidStateType.Dead) end)
+	Notify("character reset",1.2,C.green)
+end
+local function copyServerInfo()
+	local info=string.format("Place: %s (%s)\nJob: %s\nPlayers: %d/%d\nFPS: %d\nPing: %d ms",game.PlaceId and game.PlaceId or "unknown",game.PlaceId,game.JobId,#Players:GetPlayers(),Players.MaxPlayers,fps or 0,math.floor(LP:GetNetworkPing()*1000))
+	pcall(function() setclipboard(info) end)
+	Notify("server info copied",1.5,C.green)
+end
+local function activatePickups()
+	local myRoot=root()
+	if not myRoot then return end
+	for _,object in ipairs(workspace:GetDescendants()) do
+		if object:IsA("ProximityPrompt") then
+			local target=object.Parent
+			local position=target:IsA("BasePart") and target.Position or myRoot.Position
+			if (position-myRoot.Position).Magnitude<=8 then pcall(function() object:Fire() end) end
+		end
+	end
+end
+local function setEspAll(value)
+	S.ESPAll=value and true or false
+	for _,id in ipairs({"ESP","Box","NameESP","HP","Tracer","Skeleton","DistanceESP","NameHP"}) do
+		local toggle=Registry and Registry.Toggles[id]
+		if toggle then toggle.set(S.ESPAll,false) else S[id]=S.ESPAll end
+	end
+	if not S.ESPAll then clearESP() end
+	Notify("esp all: "..(S.ESPAll and "ON" or "OFF"),1.2,S.ESPAll and C.green or C.red)
 end
 
 local function hardOff(id)
@@ -344,6 +493,14 @@ local function hardOff(id)
 	elseif id=="Ghost" or id=="FF" then resetGhostFF()
 	elseif id=="Invisible" then
 		local c=char() if c then for _,p in ipairs(c:GetDescendants()) do if p:IsA("BasePart") then p.LocalTransparencyModifier=0 end end end
+		for _,player in ipairs(Players:GetPlayers()) do
+			if player~=LP and player.Character then
+				for _,part in ipairs(player.Character:GetDescendants()) do
+					if part:IsA("BasePart") then part.LocalTransparencyModifier=0 end
+				end
+			end
+		end
+	elseif id=="FreezePlayers" then setFreezePlayers(false)
 	elseif id=="Spin" or id=="Fling" then local r=root() if r then r.AssemblyAngularVelocity=Vector3.zero end
 	elseif id=="FakeLag" then local r=root() if r then r.Anchored=false end
 	elseif id=="Hitbox" or id=="Reach" then resetHit()
@@ -371,7 +528,10 @@ local function hardOff(id)
 		local sky = Lighting:FindFirstChildOfClass("Sky")
 		if sky then sky:Destroy() end
 		resetLight()
-	elseif id=="ScreenGlitch" or id=="Camp" or id=="FakeName" or id=="AutoPickup" or id=="TriggerBot" or id=="AutoShoot" or id=="WallBang" or id=="Resolver" or id=="Prediction" or id=="BoxLines" or id=="TopInfo" or id=="BottomInfo" or id=="ScreenChroma" or id=="ScreenVignette" or id=="SilentAim" or id=="Aimbot" or id=="FOVCircle" then
+	elseif id=="ScreenGlitch" or id=="Camp" or id=="FakeName" or id=="AutoPickup" or id=="TriggerBot" or id=="AutoShoot" or id=="WallBang" or id=="Resolver" or id=="Prediction" or id=="BoxLines" or id=="TopInfo" or id=="BottomInfo" or id=="SilentAim" or id=="Aimbot" or id=="FOVCircle" then
+	elseif id=="ScreenChroma" or id=="ScreenVignette" then updateScreenFx()
+	elseif id=="ESPAll" then setEspAll(false)
+	elseif id=="AutoRejoin" then S.AutoRejoin=false
 	elseif id=="AntiTeleport" then local h=hum() if h then h.WalkSpeed=Def.WS end
 	elseif id=="AutoSteal" or id=="FakeLatency" then local r=root() if r then r.Anchored=false end
 	elseif id=="AntiAimJitter" or id=="AntiAimDesync" or id=="AntiAimPitch" or id=="SoundControl" then end
@@ -394,9 +554,17 @@ local FOVCorner = Instance.new("UICorner", FOVDraw) FOVCorner.CornerRadius=UDim.
 -- =============================================================================
 -- SILENT AIM (hook mouse.Hit / mouse.Target via mt)
 -- =============================================================================
-local rawIndex, rawNewIndex
+local rawIndex
 local silentTarget = nil
 local skeletonDraw = {}
+
+local function predictedPartPosition(player, part)
+	if not S.Prediction then return part.Position end
+	local character=player.Character
+	local characterRoot=character and character:FindFirstChild("HumanoidRootPart")
+	if not characterRoot then return part.Position end
+	return part.Position + characterRoot.AssemblyLinearVelocity * S.PredictionValue
+end
 
 local function getClosestInFOV()
 	local cam = workspace.CurrentCamera
@@ -515,8 +683,8 @@ local function applyConfig(json)
 			local ft = ensureFeat(id)
 			if f.color then ft.color = deserializeColor(f.color) end
 			if f.bind then
-				-- Convert string back to KeyCode
-				local ok, keycode = pcall(function() return Enum.KeyCode[f.bind] end)
+				local keyName = f.bind:match("^Enum%.KeyCode%.(.+)$") or f.bind
+				local ok, keycode = pcall(function() return Enum.KeyCode[keyName] end)
 				if ok and keycode then ft.bind = keycode end
 			else
 				ft.bind = nil
@@ -533,7 +701,7 @@ local function applyConfig(json)
 	for id, tog in pairs(Registry and Registry.Toggles or {}) do
 		if data.state and data.state[id] ~= nil then
 			local want = data.state[id] and true or false
-			if tog.Get() ~= want then tog.Set(want, false) end
+			if tog.get() ~= want then tog.set(want, false) end
 		end
 	end
 	if data.state and data.state.ThirdP then enableThirdPerson(S.ThirdDist) else disableThirdPerson() end
@@ -831,21 +999,27 @@ local function openCustomize(featureId, label, anchorFrame)
  		local picker = Instance.new("Frame", Gui)
  		picker.Size = UDim2.new(0,220,0,180) picker.BackgroundColor3=C.bg picker.BorderSizePixel=0 picker.ZIndex=100 corner(picker,6) drag(picker,picker)
  		local title=Instance.new("TextLabel",picker) title.Size=UDim2.new(1,0,0,20) title.BackgroundTransparency=1 title.Font=Enum.Font.Code title.TextSize=11 title.TextColor3=C.text title.Text="HSV color picker"
- 		local h=0 s=1 v=1
+ 		local h, s, v = 0, 1, 1
  		local bar=Instance.new("Frame",picker) bar.Size=UDim2.new(1,-16,0,120) bar.Position=UDim2.new(0,8,0,30) bar.BackgroundColor3=C.elem bar.BorderSizePixel=0 corner(bar,4)
  		local preview=Instance.new("Frame",bar) preview.Size=UDim2.new(0,40,0,40) preview.Position=UDim2.new(0,5,0,5) preview.BackgroundColor3=Color3.fromHSV(h,s,v) preview.BorderSizePixel=0 corner(preview,3)
  		local hSlider=Instance.new("TextButton",picker)
  			hSlider.Size=UDim2.new(1,-16,0,18) hSlider.Position=UDim2.new(0,8,0,135) hSlider.BackgroundColor3=C.off hSlider.Text="hue: "..math.floor(h*360) hSlider.Font=Enum.Font.Code hSlider.TextSize=11 hSlider.TextColor3=C.text corner(hSlider,4)
- 			hSlider.MouseButton1Click:Connect(function() h=(h+0.1)%1 preview.BackgroundColor3=Color3.fromHSV(h,s,v) hSlider.Text="hue: "..math.floor(h*360) end)
- 			Btn({page=picker}, "apply", function()
- 				ft.color=Color3.fromHSV(h,s,v)
- 				if featureId=="ESP" or featureId=="Box" then S.EspColor=ft.color end
- 				if featureId=="Halo" or featureId=="Trail" then S.FXColor=ft.color end
- 				Notify("color applied",1.2,ft.color)
- 				picker:Destroy()
- 			end)
- 			ctxBtn("close", function() picker:Destroy() end)
- 		end)
+  			hSlider.MouseButton1Click:Connect(function() h=(h+0.1)%1 preview.BackgroundColor3=Color3.fromHSV(h,s,v) hSlider.Text="hue: "..math.floor(h*360) end)
+  			local applyBtn=Instance.new("TextButton",picker)
+  			applyBtn.Size=UDim2.new(0.6,0,0,24) applyBtn.Position=UDim2.new(0,8,1,-52) applyBtn.BackgroundColor3=C.elem applyBtn.BorderSizePixel=0
+  			applyBtn.Text="apply" applyBtn.Font=Enum.Font.Code applyBtn.TextSize=11 applyBtn.TextColor3=C.text corner(applyBtn,4)
+  			applyBtn.MouseButton1Click:Connect(function()
+  				ft.color=Color3.fromHSV(h,s,v)
+  				if featureId=="ESP" or featureId=="Box" then S.EspColor=ft.color end
+  				if featureId=="Halo" or featureId=="Trail" then S.FXColor=ft.color end
+  				Notify("color applied",1.2,ft.color)
+  				picker:Destroy()
+  			end)
+  			local closeBtn=Instance.new("TextButton",picker)
+  			closeBtn.Size=UDim2.new(0.35,0,0,24) closeBtn.Position=UDim2.new(0.65,0,1,-52) closeBtn.BackgroundColor3=C.off closeBtn.BorderSizePixel=0
+  			closeBtn.Text="close" closeBtn.Font=Enum.Font.Code closeBtn.TextSize=11 closeBtn.TextColor3=C.text corner(closeBtn,4)
+  			closeBtn.MouseButton1Click:Connect(function() picker:Destroy() end)
+  		end)
 	
 	-- Feature-specific settings
 	if featureId=="SilentAim" or featureId=="Aimbot" then
@@ -926,7 +1100,7 @@ UIS.InputBegan:Connect(function(i)
 	if i.UserInputType==Enum.UserInputType.MouseButton1 and Ctx.Visible then task.defer(hideCtx) end
 end)
 
-Registry = { Toggles={}, Binds={}, BindUI={} }
+local Registry = { Toggles={}, Binds={}, BindUI={} }
 local waitingBind=nil
 local waitingFeatBind=nil
 
@@ -1036,6 +1210,7 @@ local tOpt=makeTab("optimize")
 local tCfg=makeTab("config")
 local tBind=makeTab("binds")
 local tMisc=makeTab("misc")
+local tUtil=makeTab("utility")
 
 section(tMove,"flight")
 Toggle(tMove,"fly","Fly",false,function(v) S.Fly=v end)
@@ -1094,6 +1269,7 @@ Slider(tCombat,"anti-aim pitch",-90,90,0,function(v) S.AntiAimPitch=v end)
 Slider(tCombat,"desync dir",-180,180,0,function(v) S.AntiAimDesyncDir=v end)
 
 section(tVis,"esp  (RMB = color)")
+Toggle(tVis,"all esp","ESPAll",false,function(v) setEspAll(v) end)
 Toggle(tVis,"highlight esp","ESP",false,function(v) S.ESP=v end)
 Toggle(tVis,"box esp","Box",false,function(v) S.Box=v end)
 Toggle(tVis,"name esp","NameESP",false,function(v) S.NameESP=v end)
@@ -1111,8 +1287,8 @@ Toggle(tVis,"top info","TopInfo",false,function(v) S.TopInfo=v end)
 Toggle(tVis,"bottom info","BottomInfo",false,function(v) S.BottomInfo=v end)
 section(tVis,"screen effects")
 Toggle(tVis,"glitch","ScreenGlitch",false,function(v) S.ScreenGlitch=v end)
-Toggle(tVis,"chroma","ScreenChroma",false,function(v) S.ScreenChroma=v end)
-Toggle(tVis,"vignette","ScreenVignette",false,function(v) S.ScreenVignette=v end)
+Toggle(tVis,"chroma","ScreenChroma",false,function(v) S.ScreenChroma=v updateScreenFx() end)
+Toggle(tVis,"vignette","ScreenVignette",false,function(v) S.ScreenVignette=v updateScreenFx() end)
 section(tVis,"body fx  (RMB = color)")
 Toggle(tVis,"neon halo","Halo",false,function(v) S.Halo=v end)
 Toggle(tVis,"china hat","Hat",false,function(v) S.Hat=v end)
@@ -1138,8 +1314,8 @@ Toggle(tWorld,"custom sky","CustomSky",false,function(v) S.CustomSky=v end)
 Slider(tWorld,"sky r",0,255,135,function(v) S.SkyColor=Color3.fromRGB(v,S.SkyColor.G,S.SkyColor.B) end)
 Slider(tWorld,"sky g",0,255,206,function(v) S.SkyColor=Color3.fromRGB(S.SkyColor.R,v,S.SkyColor.B) end)
 Slider(tWorld,"sky b",0,255,235,function(v) S.SkyColor=Color3.fromRGB(S.SkyColor.R,S.SkyColor.G,v) end)
-Toggle(tWorld,"rain","WeatherRain",false,function(v) S.WeatherRain=v end)
-Toggle(tWorld,"snow","WeatherSnow",false,function(v) S.WeatherSnow=v end)
+Toggle(tWorld,"rain","WeatherRain",false,function(v) S.WeatherRain=v if v then ensureWeather("rain") else clearWeather() end end)
+Toggle(tWorld,"snow","WeatherSnow",false,function(v) S.WeatherSnow=v if v then ensureWeather("snow") else clearWeather() end end)
 Toggle(tCam,"custom fov","FOV",false,function(v) S.FOV=v if v then local cam=workspace.CurrentCamera if cam then Def.FOV=cam.FieldOfView end end end)
 Slider(tCam,"fov value",30,120,100,function(v) S.FOVVal=v end)
 Toggle(tCam,"force 3rd person","ThirdP",false,function(v) end)
@@ -1250,9 +1426,26 @@ Btn(tMisc,"theme: red", function() applyTheme("Red") end)
 section(tMisc,"panic")
 Btn(tMisc,"DISABLE ALL", function()
 	for _,tog in pairs(Registry.Toggles) do if tog.get() then tog.set(false,false) end end
-	disableThirdPerson() resetFly() resetSpeed() resetNoclip() resetGhostFF() resetHit() clearESP() clearFX() resetMats() resetXray() resetLight() resetFOV()
+	disableThirdPerson() resetFly() resetSpeed() resetNoclip() resetGhostFF() resetHit() clearESP() clearFX() resetMats() resetXray() resetLight() resetFOV() clearWeather() setFreezePlayers(false)
 	Notify("all off",2.5,C.orange)
 end)
+
+section(tUtil,"teleport")
+Btn(tUtil,"teleport to mouse", teleportToMouse)
+Btn(tUtil,"teleport to nearest player", teleportToNearest)
+Btn(tUtil,"bring players to me", bringPlayers)
+Toggle(tUtil,"freeze players","FreezePlayers",false,function(v) setFreezePlayers(v) end)
+Btn(tUtil,"unfreeze players", function() setFreezePlayers(false) end)
+Btn(tUtil,"reset character", resetCharacter)
+section(tUtil,"server")
+Toggle(tUtil,"auto rejoin","AutoRejoin",false,function(v) S.AutoRejoin=v end)
+Slider(tUtil,"rejoin delay",2,60,10,function(v) S.AutoRejoinDelay=v end)
+Btn(tUtil,"copy server info", copyServerInfo)
+section(tUtil,"interaction")
+Toggle(tUtil,"auto pickup","AutoPickup",false,function(v) S.AutoPickup=v end)
+Btn(tUtil,"activate nearby prompts", activatePickups)
+Toggle(tUtil,"vehicle boost","VehicleBoost",false,function(v) S.VehicleBoost=v end)
+Slider(tUtil,"vehicle boost",20,400,100,function(v) S.VehicleBoostVal=v end)
 
 tabs[1].page.Visible=true tabs[1].btn.BackgroundTransparency=0.15 tabs[1].btn.TextColor3=C.text
 
@@ -1465,7 +1658,6 @@ end)
 -- =============================================================================
 -- MAIN LOOPS
 -- =============================================================================
-local fps,acc,xrayT=0,0,0
 
 RunService.RenderStepped:Connect(function(dt)
 	fps=fps+1 acc=acc+dt
@@ -1495,6 +1687,52 @@ RunService.RenderStepped:Connect(function(dt)
 	end
 
 	local c,h,r = char(),hum(),root()
+
+	if S.FreezePlayers then maintainFreezePlayers() end
+
+	if S.AutoRejoin then
+		if not c then
+			S._rejoinT = S._rejoinT or 0
+			if tick() - S._rejoinT >= S.AutoRejoinDelay then
+				S._rejoinT = tick()
+				pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LP) end)
+			end
+		else
+			S._rejoinT = 0
+		end
+	end
+
+	if S.VehicleBoost and h and h.SeatPart then
+		local vp = h.SeatPart
+		if vp and vp.AssemblyRootPart then
+			vp.AssemblyLinearVelocity = vp.CFrame.LookVector * S.VehicleBoostVal
+		end
+	end
+
+	if S.AutoPickup then
+		S._pickupT = S._pickupT or 0
+		if tick() - S._pickupT >= 0.5 then
+			S._pickupT = tick()
+			if r then
+				for _, p in ipairs(Players:GetPlayers()) do
+					if p ~= LP and p.Character then
+						local pc = p.Character
+						local hrp = pc:FindFirstChild("HumanoidRootPart")
+						if hrp then
+							local dist = (r.Position - hrp.Position).Magnitude
+							if dist < 12 then
+								for _, item in ipairs(pc:GetChildren()) do
+									if item:IsA("Tool") and not LP.Backpack:FindFirstChild(item.Name) then
+										item.Parent = LP.Backpack
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
 
 	if h then
 		if S.WS then h.WalkSpeed=S.WSVal end
@@ -1562,7 +1800,7 @@ RunService.RenderStepped:Connect(function(dt)
 					for _, s in ipairs(p.Character:GetDescendants()) do
 						if s:IsA("Sound") then
 							s.Volume = S.SoundVolume
-							s.PlaybackSpeed = S.SoundVolume > 0 and 1 or 0
+							s.PlaybackSpeed = S.SoundVolume
 						end
 					end
 				end
@@ -1607,7 +1845,7 @@ RunService.RenderStepped:Connect(function(dt)
 			if S.AntiAimPitch ~= 0 and r then
 				local newCf = r.CFrame
 				local rotated = CFrame.fromOrientation(math.rad(S.AntiAimPitch), 0, 0)
-				r.CFrame = CFrame.new(r.Position) * rotated * CFrame.new(0,0,0)
+				r.CFrame = CFrame.new(r.Position) * rotated
 			end
 		end
 		-- trigger bot
@@ -1695,13 +1933,13 @@ RunService.RenderStepped:Connect(function(dt)
 	end
 	if S.ScreenGlitch then
 		local cam = workspace.CurrentCamera
-		if cam then cam.CFrame = cam.CFrame *  CFrame.new(0,0,0) * CFrame.Angles(0, t*50, 0) end
+		if cam then cam.CFrame = cam.CFrame * CFrame.Angles(0, math.rad(2), 0) end
 	end
 	if S.ScreenChroma and cam then
-		-- placeholder: would require Drawing API or GUI overlay for chromatic aberration
+		ScreenFx.Visible = true
 	end
 	if S.ScreenVignette and cam then
-		-- placeholder: would require Drawing API for vignette
+		ScreenFx.Visible = true
 	end
 
 	local ecol = S.RGBEsp and rainbow or S.EspColor
@@ -1905,7 +2143,7 @@ RunService.Stepped:Connect(function()
 	if S.Camp and r then
 		local cam = workspace.CurrentCamera
 		if cam then
-			cam.CFrame = r.CFrame * CFrame.new(0, S.CampDist, 0) * CFrame.new(0,0,0) + Vector3.new(0,r.Position.Y,0)
+			cam.CFrame = r.CFrame * CFrame.new(0, S.CampDist, 0) + Vector3.new(0,r.Position.Y,0)
 		end
 	end
 	if S.AutoSteal then
@@ -1924,10 +2162,18 @@ RunService.Stepped:Connect(function()
 		end
 	end
 	if S.FakeName and c then
-		pcall(function() LP.Name = "x" .. math.random(1000,9999) end)
+		S._nameT = S._nameT or 0
+		if tick() - S._nameT >= 2 then
+			S._nameT = tick()
+			pcall(function() LP.Name = "x" .. math.random(1000,9999) end)
+		end
 	end
 	if S.FakeLatency and r then
-		r.Anchored = not r.Anchored
+		S._latencyT = S._latencyT or 0
+		if tick() - S._latencyT >= 0.5 then
+			S._latencyT = tick()
+			r.Anchored = not r.Anchored
+		end
 	end
 end)
 
@@ -2033,7 +2279,10 @@ UIS.InputBegan:Connect(function(input, gp)
 	if gp then return end
 	if key==Registry.Binds.Dash then
 		local r=root() local cam=workspace.CurrentCamera
-		if r and cam then r.CFrame = r.CFrame + cam.CFrame.LookVector * S.DashDist Notify("dash",0.8,C.green) end
+		if r and cam then
+			r.CFrame = r.CFrame + cam.CFrame.LookVector * S.DashDist
+			Notify("dash",0.8,C.green)
+		end
 		return
 	end
 	-- Check per-feature binds first
