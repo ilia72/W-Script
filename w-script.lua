@@ -62,6 +62,7 @@ local Themes = {
 local Notify, setAccent, openCustomize, setProfileAvatar, setProfileNickname
 local Registry, skeletonDraw, silentTarget
 local waitingBind, waitingFeatBind
+local hideCornerLines
 
 local currentTheme = "Default"
 local function applyTheme(themeName)
@@ -145,6 +146,7 @@ local S = {
 	InfJump=false, Bhop=false, Spider=false, Noclip=false, Ghost=false,
 	Spin=false, SpinSpd=25, ClickTP=false, DashDist=25,
 	FakeLag=false, LagSec=0.12, _lagT=0, AutoStrafe=false, EdgeBug=false, EdgeJump=false,
+	AntiVoid=false, VoidY=-100,
 
 	Aimbot=false, SilentAim=false, AimRange=250, AimPart="Head", FOVCircle=false, FOVSize=120,
 	Hitbox=false, HitSize=12, Reach=false, Fling=false, AntiFling=false,
@@ -160,6 +162,7 @@ local S = {
 	ScreenGlitch=false, ScreenChroma=false, ScreenVignette=false,
 
 	Halo=false, Hat=false, Trail=false, Fire=false, Sparks=false, FF=false,
+	Headlamp=false,
 	FXColor = Color3.fromRGB(110,130,240),
 
 	Fullbright=false, Disco=false, AutoTime=false, NoFog=false, XRay=false,
@@ -334,7 +337,7 @@ end
 local function clearESP()
 	for _,p in ipairs(Players:GetPlayers()) do
 		if p.Character then
-			for _,n in ipairs({"W_HL","W_BOX","W_NAME","W_HP"}) do local o=p.Character:FindFirstChild(n) if o then o:Destroy() end end
+			for _,n in ipairs({"W_HL","W_BOX","W_NAME","W_HP","W_DIST","W_TOP","W_BOT"}) do local o=p.Character:FindFirstChild(n) if o then o:Destroy() end end
 		end
 	end
 	TracerFolder:ClearAllChildren()
@@ -350,6 +353,7 @@ local function clearFX()
 	if FX.a0 then FX.a0:Destroy() FX.a0=nil end
 	if FX.a1 then FX.a1:Destroy() FX.a1=nil end
 	local r=root() if r then if r:FindFirstChild("W_Fire") then r.W_Fire:Destroy() end if r:FindFirstChild("W_Spark") then r.W_Spark:Destroy() end end
+	local c=char() if c and c:FindFirstChild("Head") then local lamp=c.Head:FindFirstChild("W_Lamp") if lamp then lamp:Destroy() end end
 end
 local function resetMats() for o,m in pairs(matSave) do if o and o.Parent then o.Material=m end end matSave={} end
 local function resetXray() for o,v in pairs(xraySave) do if o and o.Parent then o.LocalTransparencyModifier=v end end xraySave={} end
@@ -544,7 +548,15 @@ local function hardOff(id)
 			end
 		end
 		clearESP()
-	elseif id=="Halo" or id=="Hat" or id=="Trail" or id=="Fire" or id=="Sparks" then clearFX()
+	elseif id=="Halo" or id=="Hat" or id=="Trail" or id=="Fire" or id=="Sparks" or id=="Headlamp" then clearFX()
+	elseif id=="TopInfo" or id=="BottomInfo" then
+		for _,p in ipairs(Players:GetPlayers()) do
+			if p.Character then
+				local o=p.Character:FindFirstChild(id=="TopInfo" and "W_TOP" or "W_BOT")
+				if o then o:Destroy() end
+			end
+		end
+	elseif id=="BoxLines" then hideCornerLines()
 	elseif id=="Fullbright" or id=="Disco" or id=="AutoTime" or id=="NoFog" then resetLight()
 	elseif id=="XRay" then resetXray()
 	elseif id=="NeonWorld" or id=="PlasticWorld" then resetMats()
@@ -552,7 +564,7 @@ local function hardOff(id)
 		local sky = Lighting:FindFirstChildOfClass("Sky")
 		if sky then sky:Destroy() end
 		resetLight()
-	elseif id=="ScreenGlitch" or id=="Camp" or id=="FakeName" or id=="AutoPickup" or id=="TriggerBot" or id=="AutoShoot" or id=="WallBang" or id=="Resolver" or id=="Prediction" or id=="BoxLines" or id=="TopInfo" or id=="BottomInfo" or id=="SilentAim" or id=="Aimbot" or id=="FOVCircle" then
+	elseif id=="ScreenGlitch" or id=="Camp" or id=="FakeName" or id=="AutoPickup" or id=="TriggerBot" or id=="AutoShoot" or id=="WallBang" or id=="Resolver" or id=="Prediction" or id=="SilentAim" or id=="Aimbot" or id=="FOVCircle" then
 	elseif id=="ScreenChroma" or id=="ScreenVignette" then updateScreenFx()
 	elseif id=="ESPAll" then setEspAll(false)
 	elseif id=="AutoRejoin" then S.AutoRejoin=false
@@ -615,6 +627,32 @@ local function getClosestInFOV()
 		end
 	end
 	return best
+end
+
+-- wall check: true if anything except own & target character blocks the ray
+local function hasWall(origin, dest, targetChar)
+	local dir = dest - origin
+	if dir.Magnitude < 1 then return false end
+	local rp = RaycastParams.new()
+	rp.FilterType = Enum.RaycastFilterType.Exclude
+	local ignore = {}
+	local c = char()
+	if c then table.insert(ignore, c) end
+	if targetChar then table.insert(ignore, targetChar) end
+	rp.FilterDescendantsInstances = ignore
+	local hit = workspace:Raycast(origin, dir, rp)
+	return hit ~= nil
+end
+
+-- corner-box ESP lines (Drawing API, same pattern as skeleton)
+local cornerDraw = {}
+local cornerWarned = false
+hideCornerLines = function()
+	for _,lines in pairs(cornerDraw) do
+		for _,line in pairs(lines) do
+			if line then pcall(function() line.Visible = false end) end
+		end
+	end
 end
 
 pcall(function()
@@ -809,7 +847,7 @@ corner(AvatarImg, 6)
 
 local Title=Instance.new("TextLabel",Top)
 Title.Size=UDim2.new(1,-80,1,0) Title.Position=UDim2.new(0, 42, 0, 0) Title.BackgroundTransparency=1
-Title.RichText=true Title.Text='<font color="#6e82f0"><b>W-SCRIPT</b></font>  //  v5.0' Title.Font=Enum.Font.GothamBold Title.TextSize=14 Title.TextColor3=C.dim Title.TextXAlignment=Enum.TextXAlignment.Left
+Title.RichText=true Title.Text='<font color="#6e82f0"><b>W-SCRIPT</b></font>  //  v5.1' Title.Font=Enum.Font.GothamBold Title.TextSize=14 Title.TextColor3=C.dim Title.TextXAlignment=Enum.TextXAlignment.Left
 
 local StatusDot = Instance.new("Frame", Top)
 StatusDot.Size = UDim2.new(0, 8, 0, 8)
@@ -1124,13 +1162,14 @@ openCustomize = function(featureId, label, anchorFrame)
   		end)
 	
 	-- Feature-specific settings
-	if featureId=="SilentAim" or featureId=="Aimbot" then
+	if featureId=="SilentAim" or featureId=="Aimbot" or featureId=="TriggerBot" then
+		local isTrig = (featureId=="TriggerBot")
 		local aimLabel=Instance.new("TextLabel",Ctx)
 		aimLabel.Size=UDim2.new(1,0,0,16) aimLabel.BackgroundTransparency=1
 		aimLabel.Text="— aim" aimLabel.Font=Enum.Font.Code aimLabel.TextSize=10 aimLabel.TextColor3=C.dim aimLabel.TextXAlignment=Enum.TextXAlignment.Left
-		ctxBtn("aim part: Head", function() S.AimPart="Head" Notify("aim Head",1.2,C.green) end)
-		ctxBtn("aim part: HumanoidRootPart", function() S.AimPart="HumanoidRootPart" Notify("aim HRP",1.2,C.green) end)
-		ctxBtn("aim part: UpperTorso", function() S.AimPart="UpperTorso" Notify("aim Torso",1.2,C.green) end)
+		ctxBtn("aim part: Head", function() if isTrig then S.TriggerTarget="Head" else S.AimPart="Head" end Notify("aim Head",1.2,C.green) end)
+		ctxBtn("aim part: HumanoidRootPart", function() if isTrig then S.TriggerTarget="HumanoidRootPart" else S.AimPart="HumanoidRootPart" end Notify("aim HRP",1.2,C.green) end)
+		ctxBtn("aim part: UpperTorso", function() if isTrig then S.TriggerTarget="UpperTorso" else S.AimPart="UpperTorso" end Notify("aim Torso",1.2,C.green) end)
 	end
 	
 	if featureId=="Fly" or featureId=="VehFly" then
@@ -1353,6 +1392,7 @@ section(tMove,"advanced")
 Toggle(tMove,"auto-strafe","AutoStrafe",false,function(v) S.AutoStrafe=v end)
 Toggle(tMove,"edge bug","EdgeBug",false,function(v) S.EdgeBug=v end)
 Toggle(tMove,"edge jump","EdgeJump",false,function(v) S.EdgeJump=v end)
+Slider(tMove,"gravity",0,196,196,function(v) workspace.Gravity=v end)
 
 section(tExp,"physics")
 Toggle(tExp,"noclip","Noclip",false,function(v) S.Noclip=v end)
@@ -1360,7 +1400,10 @@ Toggle(tExp,"click tp","ClickTP",false,function(v) S.ClickTP=v end)
 Toggle(tExp,"fake lag","FakeLag",false,function(v) S.FakeLag=v end)
 Slider(tExp,"lag ms",50,400,120,function(v) S.LagSec=v/1000 end)
 Toggle(tExp,"spinbot","Spin",false,function(v) S.Spin=v end)
+Slider(tExp,"spin speed",1,180,25,function(v) S.SpinSpd=v end)
 Toggle(tExp,"ghost","Ghost",false,function(v) S.Ghost=v end)
+Toggle(tExp,"anti void","AntiVoid",false,function(v) S.AntiVoid=v end)
+Slider(tExp,"void depth",-500,-10,-100,function(v) S.VoidY=v end)
 
 section(tCombat,"aim")
 Toggle(tCombat,"camera aimbot","Aimbot",false,function(v) S.Aimbot=v end)
@@ -1383,7 +1426,7 @@ Toggle(tCombat,"wallbang","WallBang",false,function(v) S.WallBang=v end)
 section(tCombat,"advanced")
 Toggle(tCombat,"resolver","Resolver",false,function(v) S.Resolver=v end)
 Toggle(tCombat,"prediction","Prediction",false,function(v) S.Prediction=v end)
-Slider(tCombat,"prediction %",0,100,8,function(v) S.PredictionValue=v/1000 end)
+Slider(tCombat,"prediction ms",0,500,80,function(v) S.PredictionValue=v/1000 end)
 section(tCombat,"anti-aim")
 Toggle(tCombat,"anti-aim jitter","AntiAimJitter",false,function(v) S.AntiAimJitter=v end)
 Toggle(tCombat,"anti-aim desync","AntiAimDesync",false,function(v) S.AntiAimDesync=v end)
@@ -1417,6 +1460,7 @@ Toggle(tVis,"china hat","Hat",false,function(v) S.Hat=v end)
 Toggle(tVis,"trail","Trail",false,function(v) S.Trail=v end)
 Toggle(tVis,"fire","Fire",false,function(v) S.Fire=v end)
 Toggle(tVis,"sparkles","Sparks",false,function(v) S.Sparks=v end)
+Toggle(tVis,"headlamp","Headlamp",false,function(v) S.Headlamp=v end)
 Toggle(tVis,"forcefield","FF",false,function(v) S.FF=v end)
 
 section(tWorld,"lighting")
@@ -1426,6 +1470,8 @@ Toggle(tWorld,"fullbright","Fullbright",false,function(v)
 end)
 Toggle(tWorld,"disco sky","Disco",false,function(v) S.Disco=v end)
 Toggle(tWorld,"auto time","AutoTime",false,function(v) S.AutoTime=v end)
+Slider(tWorld,"clock time",0,24,14,function(v) Lighting.ClockTime=v end)
+Slider(tWorld,"brightness",0,5,2,function(v) Lighting.Brightness=v end)
 Toggle(tWorld,"no fog","NoFog",false,function(v) S.NoFog=v end)
 Toggle(tWorld,"xray","XRay",false,function(v) S.XRay=v end)
 section(tWorld,"map")
@@ -2028,7 +2074,7 @@ RunService.RenderStepped:Connect(function(dt)
 			local unit = camera.CFrame.LookVector
 			for _,p in ipairs(Players:GetPlayers()) do
 				if p~=LP and p.Character then
-					local part = p.Character:FindFirstChild(S.AimPart) or p.Character:FindFirstChild("Head")
+					local part = p.Character:FindFirstChild(S.TriggerTarget) or p.Character:FindFirstChild(S.AimPart) or p.Character:FindFirstChild("Head")
 					local hh = p.Character:FindFirstChildOfClass("Humanoid")
 					if part and hh and hh.Health>0 then
 						local origin = camera.CFrame.Position
@@ -2039,11 +2085,13 @@ RunService.RenderStepped:Connect(function(dt)
 							local dot = unit:Dot(unitDir)
 							local angle = math.deg(math.acos(math.clamp(dot,-1,1)))
 							if angle <= S.FOVSize/2 then
-								if tick() - (S._triggerT or 0) >= S.TriggerDelay/1000 then
-									S._triggerT = tick()
-									local tool = char() and char():FindFirstChildOfClass("Tool")
-									if tool then
-										tool:Activate()
+								if S.WallBang or not hasWall(origin, part.Position, p.Character) then
+									if tick() - (S._triggerT or 0) >= S.TriggerDelay/1000 then
+										S._triggerT = tick()
+										local tool = char() and char():FindFirstChildOfClass("Tool")
+										if tool then
+											tool:Activate()
+										end
 									end
 								end
 							end
@@ -2064,7 +2112,9 @@ RunService.RenderStepped:Connect(function(dt)
 						if part and hh and hh.Health>0 then
 							local dist = (r.Position - part.Position).Magnitude
 							if dist <= S.AimRange then
-								best = part
+								if S.WallBang or not hasWall(r.Position, part.Position, p.Character) then
+									best = part
+								end
 							end
 						end
 					end
@@ -2128,12 +2178,17 @@ RunService.RenderStepped:Connect(function(dt)
 			skeletonDraw = {}
 		end
 	end
+	if not S.BoxLines then hideCornerLines() end
 	for _,p in ipairs(Players:GetPlayers()) do
 		if p~=LP then
 			local pc=p.Character
 			if pc then
 				local df=pc:FindFirstChild("W_DIST")
 				if df and not S.DistanceESP then df:Destroy() end
+				local ti=pc:FindFirstChild("W_TOP")
+				if ti and not S.TopInfo then ti:Destroy() end
+				local bi=pc:FindFirstChild("W_BOT")
+				if bi and not S.BottomInfo then bi:Destroy() end
 			end
 		end
 	end
@@ -2251,6 +2306,74 @@ RunService.RenderStepped:Connect(function(dt)
 					tl.TextColor3 = Color3.fromRGB(255*(1-pct),220*pct,60)
 				end
 			end
+			if S.TopInfo and head and ph then
+				local ti=pc:FindFirstChild("W_TOP")
+				if not ti then
+					ti=Instance.new("BillboardGui",pc) ti.Name="W_TOP" ti.Adornee=head ti.Size=UDim2.new(0,140,0,16) ti.StudsOffset=Vector3.new(0,3.4,0) ti.AlwaysOnTop=true
+					local tl=Instance.new("TextLabel",ti) tl.Size=UDim2.new(1,0,1,0) tl.BackgroundTransparency=1 tl.Font=Enum.Font.Code tl.TextSize=11 tl.TextStrokeTransparency=0.4
+				end
+				local tl=ti:FindFirstChildOfClass("TextLabel")
+				if tl then
+					local pct=math.clamp(ph.Health/math.max(ph.MaxHealth,1),0,1)
+					tl.Text = math.floor(ph.Health).."/"..math.floor(ph.MaxHealth).." HP ["..math.floor(pct*100).."%]"
+					tl.TextColor3 = Color3.fromRGB(255*(1-pct),220*pct,60)
+				end
+			end
+			if S.BottomInfo and hrp and r then
+				local bi=pc:FindFirstChild("W_BOT")
+				if not bi then
+					bi=Instance.new("BillboardGui",pc) bi.Name="W_BOT" bi.Adornee=hrp bi.Size=UDim2.new(0,140,0,16) bi.StudsOffset=Vector3.new(0,-3.6,0) bi.AlwaysOnTop=true
+					local bl=Instance.new("TextLabel",bi) bl.Size=UDim2.new(1,0,1,0) bl.BackgroundTransparency=1 bl.Font=Enum.Font.Code bl.TextSize=11 bl.TextStrokeTransparency=0.4 bl.TextColor3=C.orange
+				end
+				local bl=bi:FindFirstChildOfClass("TextLabel")
+				if bl then
+					local dist=math.floor((r.Position-hrp.Position).Magnitude)
+					local h=pc:FindFirstChildOfClass("Humanoid")
+					bl.Text = dist.."m"..(h and ("  WS"..math.floor(h.WalkSpeed)) or "")
+				end
+			end
+			if S.BoxLines and head and hrp and cam then
+				if not cornerWarned and not Drawing then
+					cornerWarned = true
+					Notify("drawing api missing — box lines need UNC executor", 3, C.orange)
+				end
+				if Drawing then
+					if not cornerDraw[p.Name] then cornerDraw[p.Name] = {} end
+					local up = head.Position + Vector3.new(0,0.6,0)
+					local dn = hrp.Position - Vector3.new(0,3,0)
+					local sUp, onU = cam:WorldToViewportPoint(up)
+					local sDn, onD = cam:WorldToViewportPoint(dn)
+					if onU and onD and sUp.Z > 0 and sDn.Z > 0 then
+						local hgt = math.abs(sDn.Y - sUp.Y)
+						if hgt > 8 then
+							local wdt = hgt * 0.55
+							local cx = (sUp.X + sDn.X) / 2
+							local x1, x2 = cx - wdt/2, cx + wdt/2
+							local y1, y2 = sUp.Y, sDn.Y
+							local ln = math.max(4, hgt * 0.22)
+							local segs = {
+								{x1,y1,x1+ln,y1},{x1,y1,x1,y1+ln},
+								{x2,y1,x2-ln,y1},{x2,y1,x2,y1+ln},
+								{x1,y2,x1+ln,y2},{x1,y2,x1,y2-ln},
+								{x2,y2,x2-ln,y2},{x2,y2,x2,y2-ln},
+							}
+							for i,sg in ipairs(segs) do
+								local line = cornerDraw[p.Name][i]
+								if not line then
+									local ok, res = pcall(function() return Drawing.new("Line") end)
+									if ok and res then line = res line.Thickness = 2 cornerDraw[p.Name][i] = line end
+								end
+								if line then
+									line.Color = ecol
+									line.From = Vector2.new(sg[1], sg[2])
+									line.To = Vector2.new(sg[3], sg[4])
+									line.Visible = true
+								end
+							end
+						end
+					end
+				end
+			end
 			if S.Invisible then
 				for _,part in ipairs(pc:GetDescendants()) do
 					if part:IsA("BasePart") then
@@ -2290,6 +2413,14 @@ RunService.RenderStepped:Connect(function(dt)
 		end
 		if S.Fire and not r:FindFirstChild("W_Fire") then local f=Instance.new("Fire",r) f.Name="W_Fire" f.Size=7 end
 		if S.Sparks and not r:FindFirstChild("W_Spark") then local s=Instance.new("Sparkles",r) s.Name="W_Spark" end
+		if S.Headlamp and c:FindFirstChild("Head") then
+			if not c.Head:FindFirstChild("W_Lamp") then
+				local lamp=Instance.new("PointLight",c.Head) lamp.Name="W_Lamp" lamp.Range=28 lamp.Brightness=2 lamp.Shadows=false
+			end
+		elseif c:FindFirstChild("Head") then
+			local lamp=c.Head:FindFirstChild("W_Lamp")
+			if lamp then lamp:Destroy() end
+		end
 		if S.FF then for _,p in ipairs(c:GetDescendants()) do if p:IsA("BasePart") and p.Name~="HumanoidRootPart" then p.Material=Enum.Material.ForceField p.Color=fxCol end end end
 	end
 end)
@@ -2297,6 +2428,15 @@ end)
 RunService.Stepped:Connect(function()
 	local c=char() if not c then return end
 	if S.Noclip then for _,p in ipairs(c:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide=false end end end
+	local r=c:FindFirstChild("HumanoidRootPart")
+	if S.AntiVoid and r then
+		if r.Position.Y < S.VoidY then
+			r.CFrame = CFrame.new(S._safePos or (r.Position + Vector3.new(0,60,0)))
+			r.AssemblyLinearVelocity = Vector3.zero
+		elseif r.Position.Y > S.VoidY + 20 then
+			S._safePos = r.Position
+		end
+	end
 	if S.AntiFling then
 		for _,p in ipairs(Players:GetPlayers()) do
 			if p~=LP and p.Character then for _,bp in ipairs(p.Character:GetDescendants()) do if bp:IsA("BasePart") then bp.CanCollide=false bp.Massless=true end end end
@@ -2478,4 +2618,4 @@ UIS.InputBegan:Connect(function(input, gp)
 end)
 
 
-Notify("loaded v5.0 | "..#SearchItems.." funcs in "..#tabs.." tabs | K menu | search, collapse, RMB", 4, C.green)
+Notify("loaded v5.1 | "..#SearchItems.." funcs in "..#tabs.." tabs | K menu | search, collapse, RMB", 4, C.green)
