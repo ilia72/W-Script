@@ -763,7 +763,11 @@ end
 -- =============================================================================
 local Main = Instance.new("Frame", Gui)
 Main.Size=UDim2.new(0,620,0,480) Main.Position=UDim2.new(0.5,-310,0.5,-240)
-Main.BackgroundColor3=C.bg Main.BorderSizePixel=0 Main.Active=true Main.ClipsDescendants=true corner(Main,10)
+Main.BackgroundColor3=C.bg Main.BackgroundTransparency=0.12 Main.BorderSizePixel=0 Main.Active=true Main.ClipsDescendants=true corner(Main,10)
+local MainGrad=Instance.new("UIGradient",Main)
+MainGrad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(38,38,50)),ColorSequenceKeypoint.new(1,Color3.fromRGB(12,12,17))})
+MainGrad.Rotation=90
+local MainEdge=Instance.new("UIStroke",Main) MainEdge.Color=Color3.fromRGB(255,255,255) MainEdge.Thickness=1 MainEdge.Transparency=0.88
 local MainStroke=Instance.new("UIStroke",Main) MainStroke.Color=C.off MainStroke.Thickness=1 MainStroke.Transparency=0.35
 -- auto-fit: shrink whole window on small viewports (phones) so tabs stay on-screen
 local MainScale=Instance.new("UIScale",Main) MainScale.Scale=1
@@ -777,7 +781,7 @@ noise.Size=UDim2.new(1,0,1,0) noise.BackgroundTransparency=1 noise.ImageTranspar
 noise.ScaleType=Enum.ScaleType.Tile noise.TileSize=UDim2.new(0,48,0,48) noise.Image="rbxassetid://6372755229" noise.ZIndex=0
 
 local Top=Instance.new("Frame",Main)
-Top.Size=UDim2.new(1,0,0,36) Top.BackgroundColor3=C.panel Top.BorderSizePixel=0 corner(Top,10) drag(Main,Top)
+Top.Size=UDim2.new(1,0,0,36) Top.BackgroundColor3=C.panel Top.BackgroundTransparency=0.15 Top.BorderSizePixel=0 corner(Top,10) drag(Main,Top)
 local TopLine=Instance.new("Frame",Top)
 TopLine.Size=UDim2.new(1,0,0,1) TopLine.Position=UDim2.new(0,0,1,-1) TopLine.BorderSizePixel=0 markAccent(TopLine,"BackgroundColor3")
 
@@ -812,18 +816,21 @@ XBtn.MouseEnter:Connect(function() TweenService:Create(XBtn,TweenInfo.new(0.12),
 XBtn.MouseLeave:Connect(function() TweenService:Create(XBtn,TweenInfo.new(0.15),{TextColor3=C.dim}):Play() end)
 
 local Side=Instance.new("Frame",Main)
-Side.Size=UDim2.new(0,120,1,-36) Side.Position=UDim2.new(0,0,0,36) Side.BackgroundColor3=C.panel Side.BorderSizePixel=0
+Side.Size=UDim2.new(0,120,1,-36) Side.Position=UDim2.new(0,0,0,36) Side.BackgroundColor3=C.panel Side.BackgroundTransparency=0.15 Side.BorderSizePixel=0
 corner(Side, 0)
 Instance.new("UIListLayout",Side).Padding=UDim.new(0,3)
 local SidePad=Instance.new("UIPadding",Side) SidePad.PaddingTop=UDim.new(0,4) SidePad.PaddingLeft=UDim.new(0,4) SidePad.PaddingRight=UDim.new(0,4)
-local SideLine=Instance.new("Frame",Side)
-SideLine.Size=UDim2.new(0,1,1,-8) SideLine.Position=UDim2.new(1,-1,0,4) SideLine.BackgroundColor3=C.off SideLine.BorderSizePixel=0 SideLine.BackgroundTransparency=0.4
+-- NOTE: parented to Main, NOT Side — Side has UIListLayout, any extra Frame child
+-- would eat list space and push tab buttons out of view (only 1 tab visible bug)
+local SideLine=Instance.new("Frame",Main)
+SideLine.Size=UDim2.new(0,1,1,-48) SideLine.Position=UDim2.new(0,120,0,40) SideLine.BackgroundColor3=C.off SideLine.BorderSizePixel=0 SideLine.BackgroundTransparency=0.4
 
 -- Profile section at top of sidebar
 local ProfileFrame = Instance.new("Frame", Side)
 ProfileFrame.Size = UDim2.new(1,-8,0,70)
 ProfileFrame.Position = UDim2.new(0,4,0,4)
 ProfileFrame.BackgroundColor3 = C.elem
+ProfileFrame.BackgroundTransparency = 0.2
 ProfileFrame.BorderSizePixel=0
 corner(ProfileFrame, 6)
 
@@ -978,9 +985,10 @@ local function section(tab, text)
 end
 
 local Ctx = Instance.new("Frame", Gui)
-Ctx.Size=UDim2.new(0,200,0,0) Ctx.BackgroundColor3=C.panel Ctx.BorderSizePixel=0 Ctx.Visible=false Ctx.ZIndex=50
+Ctx.Size=UDim2.new(0,200,0,0) Ctx.BackgroundColor3=C.panel Ctx.BackgroundTransparency=0.08 Ctx.BorderSizePixel=0 Ctx.Visible=false Ctx.ZIndex=50
 Ctx.AutomaticSize=Enum.AutomaticSize.Y corner(Ctx,6)
 local CtxStroke=Instance.new("UIStroke",Ctx) CtxStroke.Color=C.off CtxStroke.Thickness=1
+local CtxEdge=Instance.new("UIStroke",Ctx) CtxEdge.Color=Color3.fromRGB(255,255,255) CtxEdge.Thickness=1 CtxEdge.Transparency=0.85
 local CtxScale=Instance.new("UIScale",Ctx) CtxScale.Scale=1
 local CtxList=Instance.new("UIListLayout",Ctx) CtxList.Padding=UDim.new(0,2)
 local CtxPad=Instance.new("UIPadding",Ctx) CtxPad.PaddingTop=UDim.new(0,6) CtxPad.PaddingBottom=UDim.new(0,6) CtxPad.PaddingLeft=UDim.new(0,6) CtxPad.PaddingRight=UDim.new(0,6)
@@ -1188,7 +1196,7 @@ waitingFeatBind=nil
 
 local function Toggle(tab, label, id, default, onSet)
 	local f=Instance.new("Frame",tab.page)
-	f.Size=UDim2.new(1,-4,0,28) f.BackgroundColor3=C.elem f.BorderSizePixel=0 corner(f,5)
+	f.Size=UDim2.new(1,-4,0,28) f.BackgroundColor3=C.elem f.BackgroundTransparency=0.2 f.BorderSizePixel=0 corner(f,5)
 	local fst=Instance.new("UIStroke",f) fst.Color=C.off fst.Thickness=1 fst.Transparency=0.6
 	local l=Instance.new("TextLabel",f)
 	l.BackgroundTransparency=1 l.Position=UDim2.new(0,10,0,0) l.Size=UDim2.new(1,-50,1,0)
@@ -1231,7 +1239,7 @@ end
 
 local function Slider(tab, label, min, max, default, cb)
 	local f=Instance.new("Frame",tab.page)
-	f.Size=UDim2.new(1,-4,0,40) f.BackgroundColor3=C.elem f.BorderSizePixel=0 corner(f,5)
+	f.Size=UDim2.new(1,-4,0,40) f.BackgroundColor3=C.elem f.BackgroundTransparency=0.2 f.BorderSizePixel=0 corner(f,5)
 	local fst=Instance.new("UIStroke",f) fst.Color=C.off fst.Thickness=1 fst.Transparency=0.6
 	local l=Instance.new("TextLabel",f) l.BackgroundTransparency=1 l.Position=UDim2.new(0,10,0,3) l.Size=UDim2.new(1,-60,0,16)
 	l.Font=Enum.Font.Code l.TextSize=11 l.TextColor3=C.text l.TextXAlignment=Enum.TextXAlignment.Left l.Text=label
@@ -1253,7 +1261,7 @@ end
 
 local function Btn(tab, label, cb)
 	local b=Instance.new("TextButton",tab.page)
-	b.Size=UDim2.new(1,-4,0,28) b.BackgroundColor3=C.elem b.BorderSizePixel=0 b.AutoButtonColor=false
+	b.Size=UDim2.new(1,-4,0,28) b.BackgroundColor3=C.elem b.BackgroundTransparency=0.15 b.BorderSizePixel=0 b.AutoButtonColor=false
 	b.Text=label b.Font=Enum.Font.Code b.TextSize=12 b.TextColor3=C.text corner(b,5)
 	hover(b)
 	b.MouseEnter:Connect(function() TweenService:Create(b,TweenInfo.new(0.12),{TextColor3=C.accent}):Play() end)
@@ -1264,7 +1272,7 @@ end
 
 local function BindRow(tab, label, id)
 	local b=Instance.new("TextButton",tab.page)
-	b.Size=UDim2.new(1,-4,0,28) b.BackgroundColor3=C.elem b.BorderSizePixel=0 b.AutoButtonColor=false b.Font=Enum.Font.Code b.TextSize=12 b.TextColor3=C.text corner(b,5)
+	b.Size=UDim2.new(1,-4,0,28) b.BackgroundColor3=C.elem b.BackgroundTransparency=0.15 b.BorderSizePixel=0 b.AutoButtonColor=false b.Font=Enum.Font.Code b.TextSize=12 b.TextColor3=C.text corner(b,5)
 	hover(b)
 	local function refresh()
 		local k = (Feat[id] and Feat[id].bind) or Registry.Binds[id]
@@ -1585,7 +1593,7 @@ end
 
 local SearchBox = Instance.new("TextBox", Top)
 SearchBox.Size=UDim2.new(0,130,0,22) SearchBox.Position=UDim2.new(1,-170,0.5,-11)
-SearchBox.BackgroundColor3=C.elem SearchBox.BorderSizePixel=0
+SearchBox.BackgroundColor3=C.elem SearchBox.BackgroundTransparency=0.2 SearchBox.BorderSizePixel=0
 SearchBox.PlaceholderText="search..." SearchBox.PlaceholderColor3=C.dim
 SearchBox.Font=Enum.Font.Code SearchBox.TextSize=12 SearchBox.TextColor3=C.text
 SearchBox.Text="" SearchBox.ClearTextOnFocus=false corner(SearchBox,5)
@@ -1607,10 +1615,13 @@ local LMain = Instance.new("Frame", LoaderGui)
 LMain.Size = UDim2.new(0, 420, 0, 380)
 LMain.Position = UDim2.new(0.5, -210, 0.5, -190)
 LMain.BackgroundColor3 = C.bg
+LMain.BackgroundTransparency = 0.12
 LMain.BorderSizePixel = 0
 LMain.Active = true
 LMain.ClipsDescendants = true
 corner(LMain, 8)
+local LMainStroke=Instance.new("UIStroke",LMain) LMainStroke.Color=C.off LMainStroke.Thickness=1 LMainStroke.Transparency=0.35
+local LMainEdge=Instance.new("UIStroke",LMain) LMainEdge.Color=Color3.fromRGB(255,255,255) LMainEdge.Thickness=1 LMainEdge.Transparency=0.88
 LMain.Visible = false
 
 local lnoise = Instance.new("ImageLabel", LMain)
@@ -1625,6 +1636,7 @@ lnoise.ZIndex = 0
 local LTop = Instance.new("Frame", LMain)
 LTop.Size = UDim2.new(1, 0, 0, 30)
 LTop.BackgroundColor3 = C.panel
+LTop.BackgroundTransparency = 0.15
 LTop.BorderSizePixel = 0
 corner(LTop, 8)
 drag(LMain, LTop)
@@ -1653,6 +1665,7 @@ local LList = Instance.new("ScrollingFrame", LMain)
 LList.Size = UDim2.new(1, -20, 0, 240)
 LList.Position = UDim2.new(0, 10, 0, 40)
 LList.BackgroundColor3 = C.elem
+LList.BackgroundTransparency = 0.2
 LList.BorderSizePixel = 0
 LList.ScrollBarThickness = 3
 LList.ScrollBarImageColor3 = C.off
@@ -1674,6 +1687,7 @@ local LSaveFrame = Instance.new("Frame", LMain)
 LSaveFrame.Size = UDim2.new(1, -20, 0, 40)
 LSaveFrame.Position = UDim2.new(0, 10, 1, -50)
 LSaveFrame.BackgroundColor3 = C.elem
+LSaveFrame.BackgroundTransparency = 0.2
 LSaveFrame.BorderSizePixel = 0
 corner(LSaveFrame, 5)
 
@@ -1728,6 +1742,7 @@ local function refreshList()
 		local card = Instance.new("Frame", LList)
 		card.Size = UDim2.new(1, 0, 0, 32)
 		card.BackgroundColor3 = C.elem
+		card.BackgroundTransparency = 0.2
 		card.BorderSizePixel = 0
 		card.LayoutOrder = i
 		corner(card, 5)
@@ -2447,4 +2462,4 @@ UIS.InputBegan:Connect(function(input, gp)
 end)
 
 
-Notify("loaded v4.2 | "..#SearchItems.." funcs "..#tabs.." tabs | K menu | search, collapse, RMB", 4, C.green)
+Notify("loaded v4.2 | "..#SearchItems.." funcs in "..#tabs.." tabs | K menu | search, collapse, RMB", 4, C.green)
