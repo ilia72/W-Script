@@ -5,10 +5,10 @@ Roblox exploit script with GUI — 3rd person fix, CFG system, silent aim, FOV c
 ## Usage
 
 ```lua
-loadstring(game:HttpGet("https://raw.githubusercontent.com/ilia72/W-Script/main/w-script.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/ilia72/W-Script/main/w-script.lua?cb="..os.time()))()
 ```
 
-> После обновления скрипта перезапусти loadstring в эксполиторе!
+> После обновления скрипта перезапусти loadstring в эксплоиторе! `?cb=..os.time()` в ссылке принудительно обходит кэш GitHub CDN и кэш эксплоитора — без него может запускаться старая версия.
 
 ## Keybinds
 

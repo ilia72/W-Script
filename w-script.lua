@@ -765,6 +765,12 @@ local Main = Instance.new("Frame", Gui)
 Main.Size=UDim2.new(0,620,0,480) Main.Position=UDim2.new(0.5,-310,0.5,-240)
 Main.BackgroundColor3=C.bg Main.BorderSizePixel=0 Main.Active=true Main.ClipsDescendants=true corner(Main,10)
 local MainStroke=Instance.new("UIStroke",Main) MainStroke.Color=C.off MainStroke.Thickness=1 MainStroke.Transparency=0.35
+-- auto-fit: shrink whole window on small viewports (phones) so tabs stay on-screen
+local MainScale=Instance.new("UIScale",Main) MainScale.Scale=1
+pcall(function()
+	local vs = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize
+	if vs then MainScale.Scale = math.clamp(math.min(vs.X/660, vs.Y/520), 0.5, 1) end
+end)
 
 local noise=Instance.new("ImageLabel",Main)
 noise.Size=UDim2.new(1,0,1,0) noise.BackgroundTransparency=1 noise.ImageTransparency=0.92
