@@ -791,7 +791,7 @@ corner(AvatarImg, 6)
 
 local Title=Instance.new("TextLabel",Top)
 Title.Size=UDim2.new(1,-80,1,0) Title.Position=UDim2.new(0, 42, 0, 0) Title.BackgroundTransparency=1
-Title.RichText=true Title.Text='<font color="#6e82f0"><b>w-script</b></font>  //  v4.1' Title.Font=Enum.Font.Code Title.TextSize=13 Title.TextColor3=C.dim Title.TextXAlignment=Enum.TextXAlignment.Left
+Title.RichText=true Title.Text='<font color="#6e82f0"><b>w-script</b></font>  //  v4.2' Title.Font=Enum.Font.Code Title.TextSize=13 Title.TextColor3=C.dim Title.TextXAlignment=Enum.TextXAlignment.Left
 
 local StatusDot = Instance.new("Frame", Top)
 StatusDot.Size = UDim2.new(0, 8, 0, 8)
@@ -2441,4 +2441,4 @@ UIS.InputBegan:Connect(function(input, gp)
 end)
 
 
-Notify("loaded | K menu | RMB customize | cfg tab", 3.5, C.green)
+Notify("loaded v4.2 | "..#SearchItems.." funcs "..#tabs.." tabs | K menu | search, collapse, RMB", 4, C.green)
