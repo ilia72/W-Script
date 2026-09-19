@@ -58,6 +58,11 @@ local Themes = {
 	},
 }
 
+-- Forward declarations (functions used before definition must resolve to locals)
+local Notify, setAccent, openCustomize, setProfileAvatar, setProfileNickname
+local Registry, skeletonDraw, silentTarget
+local waitingBind, waitingFeatBind
+
 local currentTheme = "Default"
 local function applyTheme(themeName)
 	local theme = Themes[themeName]
@@ -72,7 +77,7 @@ end
 
 local accentObjs = {}
 local function markAccent(o,p) table.insert(accentObjs,{o=o,p=p}) o[p]=C.accent end
-local function setAccent(col)
+setAccent = function(col)
 	C.accent = col
 	for _,a in ipairs(accentObjs) do if a.o and a.o.Parent then pcall(function() a.o[a.p]=col end) end end
 end
@@ -95,7 +100,7 @@ local NHold = Instance.new("Frame", Gui)
 NHold.Size=UDim2.new(0,280,1,-20) NHold.Position=UDim2.new(1,-290,0,10) NHold.BackgroundTransparency=1
 Instance.new("UIListLayout", NHold).Padding=UDim.new(0,6)
 local nI=0
-local function Notify(msg,dur,col)
+Notify = function(msg,dur,col)
 	dur=dur or 2.2 col=col or C.accent nI=nI+1
 	local card=Instance.new("Frame",NHold)
 	card.Size=UDim2.new(1,0,0,30) card.BackgroundColor3=C.panel card.BackgroundTransparency=1 card.BorderSizePixel=0 card.LayoutOrder=nI
@@ -555,8 +560,8 @@ local FOVCorner = Instance.new("UICorner", FOVDraw) FOVCorner.CornerRadius=UDim.
 -- SILENT AIM (hook mouse.Hit / mouse.Target via mt)
 -- =============================================================================
 local rawIndex
-local silentTarget = nil
-local skeletonDraw = {}
+silentTarget = nil
+skeletonDraw = {}
 
 local function predictedPartPosition(player, part)
 	if not S.Prediction then return part.Position end
@@ -827,7 +832,7 @@ ProfileDisplayName.TextXAlignment = Enum.TextXAlignment.Left
 ProfileDisplayName.Text = "@"..LP.DisplayName
 ProfileDisplayName.TextWrapped = true
 
-local function setProfileAvatar(image, source)
+setProfileAvatar = function(image, source)
 	if type(image) == "string" and image ~= "" then
 		Profile.avatar = image
 	end
@@ -838,7 +843,7 @@ local function setProfileAvatar(image, source)
 	ProfileAvatar.Image = Profile.avatar
 end
 
-local function setProfileNickname(nickname)
+setProfileNickname = function(nickname)
 	nickname = tostring(nickname or ""):gsub("^%s+", ""):gsub("%s+$", "")
 	if nickname == "" then nickname = LP.Name end
 	nickname = nickname:sub(1, 30)
@@ -860,8 +865,14 @@ end
 
 setProfileNickname(LP.Name)
 task.defer(loadRobloxAvatar)
-ProfileFrame.Active = true
-ProfileFrame.MouseButton1Click:Connect(function()
+-- FIX: Frame has no MouseButton1Click event — it errors and halts the whole
+-- script before tabs/toggles are created (empty menu). Use overlay button.
+local ProfileBtn = Instance.new("TextButton", ProfileFrame)
+ProfileBtn.Size = UDim2.new(1,0,1,0)
+ProfileBtn.BackgroundTransparency = 1
+ProfileBtn.Text = ""
+ProfileBtn.ZIndex = 5
+ProfileBtn.MouseButton1Click:Connect(function()
 	openCustomize("Profile", "profile", ProfileFrame)
 end)
 
@@ -915,7 +926,7 @@ local function ctxBtn(text, fn)
 	b.MouseButton1Click:Connect(function() fn() hideCtx() end)
 end
 
-local function openCustomize(featureId, label, anchorFrame)
+openCustomize = function(featureId, label, anchorFrame)
 	hideCtx()
 	for _,ch in ipairs(Ctx:GetChildren()) do
 		if ch ~= CtxStroke and ch ~= CtxList and ch ~= CtxPad then ch:Destroy() end
@@ -1100,9 +1111,9 @@ UIS.InputBegan:Connect(function(i)
 	if i.UserInputType==Enum.UserInputType.MouseButton1 and Ctx.Visible then task.defer(hideCtx) end
 end)
 
-local Registry = { Toggles={}, Binds={}, BindUI={} }
-local waitingBind=nil
-local waitingFeatBind=nil
+Registry = { Toggles={}, Binds={}, BindUI={} }
+waitingBind=nil
+waitingFeatBind=nil
 
 local function Toggle(tab, label, id, default, onSet)
 	local f=Instance.new("Frame",tab.page)
