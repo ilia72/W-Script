@@ -938,17 +938,44 @@ local function makeTab(name)
 	return t
 end
 
+local SearchItems = {} -- flat registry of filterable rows {o, label}
+local SearchQuery = ""
+local function regRow(tab, row, label)
+	tab._secs = tab._secs or {}
+	if not tab._curSec then tab._curSec = {frame=nil, rows={}, collapsed=false, plus=nil} table.insert(tab._secs, tab._curSec) end
+	local e = {o=row, label=tostring(label or ""):lower()}
+	table.insert(tab._curSec.rows, e)
+	table.insert(SearchItems, e)
+end
+
 local function section(tab, text)
 	local f=Instance.new("Frame",tab.page) f.Size=UDim2.new(1,-4,0,20) f.BackgroundTransparency=1
 	local bar=Instance.new("Frame",f) bar.Size=UDim2.new(0,3,0,12) bar.Position=UDim2.new(0,2,0.5,-6) bar.BorderSizePixel=0 corner(bar,2) markAccent(bar,"BackgroundColor3")
-	local l=Instance.new("TextLabel",f) l.Size=UDim2.new(1,-12,1,0) l.Position=UDim2.new(0,10,0,0) l.BackgroundTransparency=1
+	local l=Instance.new("TextLabel",f) l.Size=UDim2.new(1,-32,1,0) l.Position=UDim2.new(0,10,0,0) l.BackgroundTransparency=1
 	l.Text=text:upper() l.Font=Enum.Font.Code l.TextSize=11 l.TextColor3=C.text l.TextTransparency=0.25 l.TextXAlignment=Enum.TextXAlignment.Left
+	local plus=Instance.new("TextLabel",f) plus.Size=UDim2.new(0,20,1,0) plus.Position=UDim2.new(1,-24,0,0) plus.BackgroundTransparency=1
+	plus.Text="–" plus.Font=Enum.Font.Code plus.TextSize=14 plus.TextColor3=C.dim plus.TextXAlignment=Enum.TextXAlignment.Right
+	tab._secs = tab._secs or {}
+	local rec = {frame=f, rows={}, collapsed=false, plus=plus}
+	table.insert(tab._secs, rec)
+	tab._curSec = rec
+	-- click header to collapse / expand its rows
+	local hit=Instance.new("TextButton",f)
+	hit.Size=UDim2.new(1,0,1,0) hit.BackgroundTransparency=1 hit.Text="" hit.AutoButtonColor=false
+	hit.MouseButton1Click:Connect(function()
+		if SearchQuery ~= "" then return end -- search mode controls visibility
+		rec.collapsed = not rec.collapsed
+		for _,e in ipairs(rec.rows) do e.o.Visible = not rec.collapsed end
+		plus.Text = rec.collapsed and "+" or "–"
+	end)
+	return f
 end
 
 local Ctx = Instance.new("Frame", Gui)
 Ctx.Size=UDim2.new(0,200,0,0) Ctx.BackgroundColor3=C.panel Ctx.BorderSizePixel=0 Ctx.Visible=false Ctx.ZIndex=50
 Ctx.AutomaticSize=Enum.AutomaticSize.Y corner(Ctx,6)
 local CtxStroke=Instance.new("UIStroke",Ctx) CtxStroke.Color=C.off CtxStroke.Thickness=1
+local CtxScale=Instance.new("UIScale",Ctx) CtxScale.Scale=1
 local CtxList=Instance.new("UIListLayout",Ctx) CtxList.Padding=UDim.new(0,2)
 local CtxPad=Instance.new("UIPadding",Ctx) CtxPad.PaddingTop=UDim.new(0,6) CtxPad.PaddingBottom=UDim.new(0,6) CtxPad.PaddingLeft=UDim.new(0,6) CtxPad.PaddingRight=UDim.new(0,6)
 
@@ -1141,6 +1168,8 @@ openCustomize = function(featureId, label, anchorFrame)
 	local as = anchorFrame.AbsoluteSize
 	Ctx.Position = UDim2.new(0, math.min(ap.X + as.X + 6, workspace.CurrentCamera.ViewportSize.X - 210), 0, math.min(ap.Y, workspace.CurrentCamera.ViewportSize.Y - 280))
 	Ctx.Visible = true
+	CtxScale.Scale = 0.94
+	TweenService:Create(CtxScale, TweenInfo.new(0.13, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale=1}):Play()
 end
 
 UIS.InputBegan:Connect(function(i)
@@ -1190,6 +1219,7 @@ local function Toggle(tab, label, id, default, onSet)
 		if p.X>=pos.X-8 and p.X<=pos.X+sz.X+8 and p.Y>=pos.Y-8 and p.Y<=pos.Y+sz.Y+8 then return end
 		apply(not state,false)
 	end)
+	regRow(tab, f, label)
 	if default then task.defer(function() apply(true,false) end) end
 end
 
@@ -1212,6 +1242,7 @@ local function Slider(tab, label, min, max, default, cb)
 	bar.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true upd(i) end end)
 	UIS.InputChanged:Connect(function(i) if dragging and i.UserInputType==Enum.UserInputType.MouseMovement then upd(i) end end)
 	UIS.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end end)
+	regRow(tab, f, label)
 end
 
 local function Btn(tab, label, cb)
@@ -1222,6 +1253,7 @@ local function Btn(tab, label, cb)
 	b.MouseEnter:Connect(function() TweenService:Create(b,TweenInfo.new(0.12),{TextColor3=C.accent}):Play() end)
 	b.MouseLeave:Connect(function() TweenService:Create(b,TweenInfo.new(0.15),{TextColor3=C.text}):Play() end)
 	b.MouseButton1Click:Connect(cb)
+	regRow(tab, b, label)
 end
 
 local function BindRow(tab, label, id)
@@ -1239,6 +1271,7 @@ local function BindRow(tab, label, id)
 		waitingBind=id b.Text=label.."   [press key]" b.TextColor3=C.orange
 		Notify("press key...",1.5,C.orange)
 	end)
+	regRow(tab, b, label)
 end
 
 local Stats=Instance.new("Frame",Gui)
@@ -1507,6 +1540,51 @@ Toggle(tUtil,"vehicle boost","VehicleBoost",false,function(v) S.VehicleBoost=v e
 Slider(tUtil,"vehicle boost",20,400,100,function(v) S.VehicleBoostVal=v end)
 
 if tabs[1] then selectTab(tabs[1]) end
+
+-- =============================================================================
+-- SEARCH (filters rows across all tabs, jumps to first tab with a match)
+-- =============================================================================
+local function applySearch(q)
+	q = tostring(q or ""):lower():gsub("^%s+",""):gsub("%s+$","")
+	SearchQuery = q
+	for _,t in ipairs(tabs) do
+		if t._secs then
+			for _,rec in ipairs(t._secs) do
+				local any=false
+				for _,e in ipairs(rec.rows) do
+					local show
+					if q=="" then show = not rec.collapsed
+					else show = e.label:find(q,1,true) ~= nil end
+					e.o.Visible = show
+					if show then any=true end
+				end
+				if rec.frame then rec.frame.Visible = (q=="" or any) end
+				if rec.plus then rec.plus.Text = (q~="" and "•") or (rec.collapsed and "+" or "–") end
+			end
+		end
+	end
+	if q~="" then
+		for _,t in ipairs(tabs) do
+			local hit=false
+			if t._secs then
+				for _,rec in ipairs(t._secs) do
+					for _,e in ipairs(rec.rows) do if e.o.Visible then hit=true break end end
+					if hit then break end
+				end
+			end
+			if hit then selectTab(t) break end
+		end
+	end
+end
+
+local SearchBox = Instance.new("TextBox", Top)
+SearchBox.Size=UDim2.new(0,130,0,22) SearchBox.Position=UDim2.new(1,-170,0.5,-11)
+SearchBox.BackgroundColor3=C.elem SearchBox.BorderSizePixel=0
+SearchBox.PlaceholderText="search..." SearchBox.PlaceholderColor3=C.dim
+SearchBox.Font=Enum.Font.Code SearchBox.TextSize=12 SearchBox.TextColor3=C.text
+SearchBox.Text="" SearchBox.ClearTextOnFocus=false corner(SearchBox,5)
+local SearchPad=Instance.new("UIPadding",SearchBox) SearchPad.PaddingLeft=UDim.new(0,8) SearchPad.PaddingRight=UDim.new(0,8)
+SearchBox:GetPropertyChangedSignal("Text"):Connect(function() applySearch(SearchBox.Text) end)
 
 -- =============================================================================
 -- LOADER MENU (config load/save/delete GUI)
