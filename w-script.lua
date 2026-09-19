@@ -63,6 +63,11 @@ local Notify, setAccent, openCustomize, setProfileAvatar, setProfileNickname
 local Registry, skeletonDraw, silentTarget
 local waitingBind, waitingFeatBind
 local hideCornerLines
+local hasWall
+-- UI shell forwards: the whole GUI build lives in a do-block (Luau 200-local
+-- limit); only these names are needed by code after the block
+local Main, XBtn, sL, WM, BindPanel, bL
+local tabs, SearchItems, applySearch, selectTab, bindMap
 
 local currentTheme = "Default"
 local function applyTheme(themeName)
@@ -149,6 +154,7 @@ local S = {
 	AntiVoid=false, VoidY=-100,
 
 	Aimbot=false, SilentAim=false, AimRange=250, AimPart="Head", FOVCircle=false, FOVSize=120,
+	VisibleCheck=true, AimSmooth=1, ShowTarget=false,
 	Hitbox=false, HitSize=12, Reach=false, Fling=false, AntiFling=false,
 	TriggerBot=false, TriggerDelay=0, TriggerTarget="Head", AutoShoot=false, WallBang=false,
 	Resolver=false, Prediction=false, PredictionValue=0.08,
@@ -602,35 +608,70 @@ local function predictedPartPosition(player, part)
 	return part.Position + characterRoot.AssemblyLinearVelocity * S.PredictionValue
 end
 
+-- best-target scoring: screen distance or nil if rejected (range/fov/walls)
+local AIM_PARTS = {"Head","UpperTorso","HumanoidRootPart"}
+local function scorePart(p, part, cam, center, myRootPos)
+	if not part then return nil end
+	if (myRootPos - part.Position).Magnitude > S.AimRange then return nil end
+	local sp, onScreen = cam:WorldToViewportPoint(part.Position)
+	if not onScreen or sp.Z <= 0 then return nil end
+	local d = (Vector2.new(sp.X, sp.Y) - center).Magnitude
+	if d > S.FOVSize then return nil end
+	if S.VisibleCheck and hasWall(cam.CFrame.Position, part.Position, p.Character) then return nil end
+	return d
+end
+
+local _stickyPart, _stickyPlayer = nil, nil
 local function getClosestInFOV()
 	local cam = workspace.CurrentCamera
 	if not cam then return nil end
 	local center = cam.ViewportSize / 2
-	local best, bestD = nil, S.FOVSize
 	local myRoot = root()
 	if not myRoot then return nil end
+	local myPos = myRoot.Position
+	-- sticky target: keep locked while still valid (no flicker between players)
+	if _stickyPart and _stickyPlayer and _stickyPlayer.Parent then
+		local pc = _stickyPlayer.Character
+		if pc then
+			local h = pc:FindFirstChildOfClass("Humanoid")
+			if h and h.Health > 0 and _stickyPart:IsDescendantOf(pc) then
+				if scorePart(_stickyPlayer, _stickyPart, cam, center, myPos) then
+					return _stickyPart
+				end
+			end
+		end
+		_stickyPart, _stickyPlayer = nil, nil
+	end
+	local best, bestD, bestP = nil, S.FOVSize, nil
 	for _,p in ipairs(Players:GetPlayers()) do
 		if p ~= LP and p.Character then
-			local part = p.Character:FindFirstChild(S.AimPart) or p.Character:FindFirstChild("Head") or p.Character:FindFirstChild("HumanoidRootPart")
 			local h = p.Character:FindFirstChildOfClass("Humanoid")
-			if part and h and h.Health > 0 then
-				local sp, onScreen = cam:WorldToViewportPoint(part.Position)
-				if onScreen and sp.Z > 0 then
-					local d = (Vector2.new(sp.X, sp.Y) - center).Magnitude
-					local wd = (myRoot.Position - part.Position).Magnitude
-					if d <= bestD and wd <= S.AimRange then
+			if h and h.Health > 0 then
+				-- preferred part first, then fallbacks (best screen pos wins)
+				local cands = {}
+				local pref = p.Character:FindFirstChild(S.AimPart)
+				if pref then table.insert(cands, pref) end
+				for _,n in ipairs(AIM_PARTS) do
+					local b = p.Character:FindFirstChild(n)
+					if b and b ~= pref then table.insert(cands, b) end
+				end
+				for _,part in ipairs(cands) do
+					local d = scorePart(p, part, cam, center, myPos)
+					if d and d <= bestD then
 						bestD = d
 						best = part
+						bestP = p
 					end
 				end
 			end
 		end
 	end
+	_stickyPart, _stickyPlayer = best, bestP
 	return best
 end
 
 -- wall check: true if anything except own & target character blocks the ray
-local function hasWall(origin, dest, targetChar)
+hasWall = function(origin, dest, targetChar)
 	local dir = dest - origin
 	if dir.Magnitude < 1 then return false end
 	local rp = RaycastParams.new()
@@ -807,7 +848,8 @@ end
 -- =============================================================================
 -- UI SHELL
 -- =============================================================================
-local Main = Instance.new("Frame", Gui)
+do -- ui scope: keeps chunk-level locals under the Luau 200 limit
+Main = Instance.new("Frame", Gui)
 Main.Size=UDim2.new(0,620,0,480) Main.Position=UDim2.new(0.5,-310,0.5,-240)
 Main.BackgroundColor3=C.bg Main.BackgroundTransparency=0.12 Main.BorderSizePixel=0 Main.Active=true Main.ClipsDescendants=true corner(Main,10)
 local MainGrad=Instance.new("UIGradient",Main)
@@ -847,7 +889,7 @@ corner(AvatarImg, 6)
 
 local Title=Instance.new("TextLabel",Top)
 Title.Size=UDim2.new(1,-80,1,0) Title.Position=UDim2.new(0, 42, 0, 0) Title.BackgroundTransparency=1
-Title.RichText=true Title.Text='<font color="#6e82f0"><b>W-SCRIPT</b></font>  //  v5.1' Title.Font=Enum.Font.GothamBold Title.TextSize=14 Title.TextColor3=C.dim Title.TextXAlignment=Enum.TextXAlignment.Left
+Title.RichText=true Title.Text='<font color="#6e82f0"><b>W-SCRIPT</b></font>  //  v5.2' Title.Font=Enum.Font.GothamBold Title.TextSize=14 Title.TextColor3=C.dim Title.TextXAlignment=Enum.TextXAlignment.Left
 
 local StatusDot = Instance.new("Frame", Top)
 StatusDot.Size = UDim2.new(0, 8, 0, 8)
@@ -855,7 +897,7 @@ StatusDot.Position = UDim2.new(0, 30, 0.5, -4)
 StatusDot.BackgroundColor3 = C.green
 corner(StatusDot, 4)
 
-local XBtn=Instance.new("TextButton",Top)
+XBtn = Instance.new("TextButton",Top)
 XBtn.Size=UDim2.new(0,32,0,32) XBtn.Position=UDim2.new(1,-32,0,2) XBtn.BackgroundTransparency=1
 XBtn.Text="✕" XBtn.Font=Enum.Font.Code XBtn.TextSize=14 XBtn.TextColor3=C.dim XBtn.Modal=true
 XBtn.MouseEnter:Connect(function() TweenService:Create(XBtn,TweenInfo.new(0.12),{TextColor3=C.red}):Play() end)
@@ -960,8 +1002,8 @@ local FootHint=Instance.new("TextLabel",Main)
 FootHint.Size=UDim2.new(1,-148,0,12) FootHint.Position=UDim2.new(0,128,1,-16) FootHint.BackgroundTransparency=1
 FootHint.Text="K — menu      RMB — customize      Insert — loader" FootHint.Font=Enum.Font.Code FootHint.TextSize=10 FootHint.TextColor3=C.dim FootHint.TextTransparency=0.4 FootHint.TextXAlignment=Enum.TextXAlignment.Right
 
-local tabs={}
-local function selectTab(t)
+tabs = {}
+selectTab = function(t)
 	for _,x in ipairs(tabs) do
 		x.page.Visible=false
 		x.btn.BackgroundTransparency=1
@@ -1003,7 +1045,7 @@ local function makeTab(name)
 	return t
 end
 
-local SearchItems = {} -- flat registry of filterable rows {o, label}
+SearchItems = {} -- flat registry of filterable rows {o, label}
 local SearchQuery = ""
 local function regRow(tab, row, label)
 	tab._secs = tab._secs or {}
@@ -1347,9 +1389,16 @@ local Stats=Instance.new("Frame",Gui)
 Stats.Size=UDim2.new(0,158,0,72) Stats.Position=UDim2.new(0.5,-79,0,10) Stats.BackgroundColor3=C.bg Stats.BorderSizePixel=0 Stats.Visible=false Stats.Active=true corner(Stats,6) drag(Stats,Stats)
 local sTop=Instance.new("Frame",Stats) sTop.Size=UDim2.new(1,0,0,20) sTop.BackgroundColor3=C.panel sTop.BorderSizePixel=0 corner(sTop,6)
 local sT=Instance.new("TextLabel",sTop) sT.Size=UDim2.new(1,0,1,0) sT.BackgroundTransparency=1 sT.Text="[ metrics ]" sT.Font=Enum.Font.Code sT.TextSize=11 sT.TextColor3=C.accent markAccent(sT,"TextColor3")
-local sL=Instance.new("TextLabel",Stats) sL.Size=UDim2.new(1,-14,1,-26) sL.Position=UDim2.new(0,8,0,24) sL.BackgroundTransparency=1 sL.Font=Enum.Font.Code sL.TextSize=12 sL.TextColor3=C.text sL.TextXAlignment=Enum.TextXAlignment.Left sL.TextYAlignment=Enum.TextYAlignment.Top
+sL = Instance.new("TextLabel",Stats) sL.Size=UDim2.new(1,-14,1,-26) sL.Position=UDim2.new(0,8,0,24) sL.BackgroundTransparency=1 sL.Font=Enum.Font.Code sL.TextSize=12 sL.TextColor3=C.text sL.TextXAlignment=Enum.TextXAlignment.Left sL.TextYAlignment=Enum.TextYAlignment.Top
 
-local WM=Instance.new("TextLabel",Gui)
+BindPanel = Instance.new("Frame",Gui)
+BindPanel.Size=UDim2.new(0,200,0,20) BindPanel.Position=UDim2.new(0,14,0,38) BindPanel.BackgroundColor3=C.bg BindPanel.BackgroundTransparency=0.15 BindPanel.BorderSizePixel=0 BindPanel.Visible=false BindPanel.Active=true BindPanel.AutomaticSize=Enum.AutomaticSize.Y corner(BindPanel,6) drag(BindPanel,BindPanel)
+local BindStroke=Instance.new("UIStroke",BindPanel) BindStroke.Color=C.off BindStroke.Thickness=1 BindStroke.Transparency=0.35
+local bTop=Instance.new("Frame",BindPanel) bTop.Size=UDim2.new(1,0,0,20) bTop.BackgroundColor3=C.panel bTop.BackgroundTransparency=0.15 bTop.BorderSizePixel=0 corner(bTop,6)
+local bT=Instance.new("TextLabel",bTop) bT.Size=UDim2.new(1,0,1,0) bT.BackgroundTransparency=1 bT.Text="[ binds ]" bT.Font=Enum.Font.Code bT.TextSize=11 bT.TextColor3=C.accent markAccent(bT,"TextColor3")
+bL = Instance.new("TextLabel",BindPanel) bL.Size=UDim2.new(1,-16,0,0) bL.Position=UDim2.new(0,8,0,24) bL.BackgroundTransparency=1 bL.Font=Enum.Font.Code bL.TextSize=11 bL.TextColor3=C.text bL.TextXAlignment=Enum.TextXAlignment.Left bL.TextYAlignment=Enum.TextYAlignment.Top bL.AutomaticSize=Enum.AutomaticSize.Y bL.Text="no binds"
+
+WM = Instance.new("TextLabel",Gui)
 WM.Size=UDim2.new(0,420,0,18) WM.Position=UDim2.new(0,14,0,12) WM.BackgroundTransparency=1 WM.Font=Enum.Font.Code WM.TextSize=12 WM.TextXAlignment=Enum.TextXAlignment.Left WM.TextColor3=C.accent WM.Visible=false WM.Text="w-script" markAccent(WM,"TextColor3")
 
 local Cross=Instance.new("Frame",Gui)
@@ -1411,6 +1460,9 @@ Toggle(tCombat,"silent aim","SilentAim",false,function(v) S.SilentAim=v end)
 Toggle(tCombat,"fov circle","FOVCircle",false,function(v) S.FOVCircle=v FOVDraw.Visible=v end)
 Slider(tCombat,"fov size",40,400,120,function(v) S.FOVSize=v FOVDraw.Size=UDim2.new(0,v*2,0,v*2) end)
 Slider(tCombat,"aim range",50,600,250,function(v) S.AimRange=v end)
+Toggle(tCombat,"visible check","VisibleCheck",true,function(v) S.VisibleCheck=v end)
+Toggle(tCombat,"show target","ShowTarget",false,function(v) S.ShowTarget=v end)
+Slider(tCombat,"aim smooth",1,20,1,function(v) S.AimSmooth=v end)
 section(tCombat,"hitbox")
 Toggle(tCombat,"hitbox expander","Hitbox",false,function(v) S.Hitbox=v end)
 Toggle(tCombat,"tool reach","Reach",false,function(v) S.Reach=v end)
@@ -1538,7 +1590,7 @@ Registry.Binds.Dash=Enum.KeyCode.Q
 Registry.Binds.Fullbright=Enum.KeyCode.B
 Registry.Binds.ThirdP=Enum.KeyCode.Three
 
-local bindMap = {
+bindMap = {
 	Fly="Fly", Noclip="Noclip", WS="WS", InfJump="InfJump", ESP="ESP",
 	Aimbot="Aimbot", SilentAim="SilentAim", ClickTP="ClickTP", Fullbright="Fullbright", ThirdP="ThirdP"
 }
@@ -1561,6 +1613,8 @@ Toggle(tMisc,"rgb ui","RGBUI",false,function(v) S.RGBUI=v; if not v then setAcce
 Toggle(tMisc,"watermark","WM",false,function(v) S.WM=v; WM.Visible=v end)
 Toggle(tMisc,"stats","Stats",false,function(v) S.Stats=v; Stats.Visible=v end)
 Toggle(tMisc,"crosshair","Cross",false,function(v) S.Cross=v Cross.Visible=v end)
+Toggle(tMisc,"bind list","BindList",true,function(v) S.BindList=v BindPanel.Visible=v end)
+Slider(tMisc,"ui scale",70,120,100,function(v) MainScale.Scale=v/100 end)
 Toggle(tMisc,"anti afk","AntiAFK",true,function(v) S.AntiAFK=v end)
 section(tMisc,"anti-cheat")
 Toggle(tMisc,"antiglare","Camp",false,function(v) S.Camp=v end)
@@ -1591,6 +1645,13 @@ Btn(tMisc,"theme: midnight", function() applyTheme("Midnight") end)
 Btn(tMisc,"theme: neon", function() applyTheme("Neon") end)
 Btn(tMisc,"theme: purple", function() applyTheme("Purple") end)
 Btn(tMisc,"theme: red", function() applyTheme("Red") end)
+section(tMisc,"accent")
+Btn(tMisc,"accent: blue", function() setAccent(Color3.fromRGB(110,130,240)) end)
+Btn(tMisc,"accent: purple", function() setAccent(Color3.fromRGB(170,90,255)) end)
+Btn(tMisc,"accent: red", function() setAccent(Color3.fromRGB(255,80,80)) end)
+Btn(tMisc,"accent: green", function() setAccent(Color3.fromRGB(70,220,120)) end)
+Btn(tMisc,"accent: orange", function() setAccent(Color3.fromRGB(255,165,50)) end)
+Btn(tMisc,"accent: white", function() setAccent(Color3.fromRGB(235,235,245)) end)
 section(tMisc,"panic")
 Btn(tMisc,"DISABLE ALL", function()
 	for _,tog in pairs(Registry.Toggles) do if tog.get() then tog.set(false,false) end end
@@ -1620,7 +1681,7 @@ if tabs[1] then selectTab(tabs[1]) end
 -- =============================================================================
 -- SEARCH (filters rows across all tabs, jumps to first tab with a match)
 -- =============================================================================
-local function applySearch(q)
+applySearch = function(q)
 	q = tostring(q or ""):lower():gsub("^%s+",""):gsub("%s+$","")
 	SearchQuery = q
 	for _,t in ipairs(tabs) do
@@ -1661,10 +1722,12 @@ SearchBox.Font=Enum.Font.Code SearchBox.TextSize=12 SearchBox.TextColor3=C.text
 SearchBox.Text="" SearchBox.ClearTextOnFocus=false corner(SearchBox,5)
 local SearchPad=Instance.new("UIPadding",SearchBox) SearchPad.PaddingLeft=UDim.new(0,8) SearchPad.PaddingRight=UDim.new(0,8)
 SearchBox:GetPropertyChangedSignal("Text"):Connect(function() applySearch(SearchBox.Text) end)
+end -- ui scope
 
 -- =============================================================================
 -- LOADER MENU (config load/save/delete GUI)
 -- =============================================================================
+do -- scoped: loader locals must not count toward the 200-local chunk limit
 local LoaderGui = Instance.new("ScreenGui")
 LoaderGui.Name = "WScriptLoader"
 LoaderGui.ResetOnSpawn = false
@@ -1874,6 +1937,7 @@ UIS.InputBegan:Connect(function(input, gp)
 		if lopen then refreshList() end
 	end
 end)
+end -- loader scope
 
 -- =============================================================================
 -- MAIN LOOPS
@@ -1891,10 +1955,22 @@ RunService.RenderStepped:Connect(function(dt)
 		local ping=0; pcall(function() ping=math.floor(LP:GetNetworkPing()*1000) end)
 		if S.Stats then sL.Text=string.format("FPS  %d\nPing %d ms\n%s",fps,ping,os.date("%H:%M:%S")) end
 		if S.WM then WM.Text=string.format("w-script | fps %d | ping %d | %s",fps,ping,os.date("%H:%M")) end
+		if S.BindList and BindPanel.Visible then
+			local lines = {}
+			for id,tog in pairs(Registry.Toggles) do
+				local feat = Feat[id]
+				local k = (feat and feat.bind) or Registry.Binds[id]
+				if k then
+					table.insert(lines, id.." ["..tostring(k):gsub("Enum.KeyCode.","").."] "..(tog.get() and "ON" or "OFF"))
+				end
+			end
+			table.sort(lines)
+			bL.Text = #lines > 0 and table.concat(lines, "\n") or "no binds"
+		end
 		fps=0 acc=0
 	end
 
-	if S.SilentAim or S.FOVCircle then
+	if S.SilentAim or S.FOVCircle or (S.Aimbot and S.ShowTarget) then
 		silentTarget = getClosestInFOV()
 		FOVDraw.Visible = S.FOVCircle
 		if S.FOVCircle then
@@ -1904,6 +1980,28 @@ RunService.RenderStepped:Connect(function(dt)
 	else
 		silentTarget=nil
 		if not S.FOVCircle then FOVDraw.Visible=false end
+	end
+
+	-- show-target marker: green highlight follows the locked part's character
+	local targChar = nil
+	if silentTarget and silentTarget.Parent then targChar = silentTarget.Parent end
+	if targChar ~= S._targChar then
+		if S._targChar then pcall(function()
+			local old = S._targChar:FindFirstChild("W_TARG")
+			if old then old:Destroy() end
+		end) end
+		S._targChar = targChar
+	end
+	if S.ShowTarget and targChar then
+		local hl = targChar:FindFirstChild("W_TARG")
+		if not hl then
+			hl = Instance.new("Highlight", targChar)
+			hl.Name = "W_TARG" hl.FillTransparency = 0.7 hl.OutlineTransparency = 0
+		end
+		hl.FillColor = C.green hl.OutlineColor = C.green
+	elseif targChar then
+		local hl = targChar:FindFirstChild("W_TARG")
+		if hl then hl:Destroy() end
 	end
 
 	local c,h,r = char(),hum(),root()
@@ -2051,7 +2149,11 @@ RunService.RenderStepped:Connect(function(dt)
 					end
 				end
 			end
-			if best then cam.CFrame=CFrame.new(cam.CFrame.Position,best.Position) end
+			if best then
+				local goal = CFrame.new(cam.CFrame.Position, best.Position)
+				local sm = S.AimSmooth or 1
+				if sm > 1 then cam.CFrame = cam.CFrame:Lerp(goal, 1/sm) else cam.CFrame = goal end
+			end
 		end
 		if S.AntiAim and r then
 			local yaw = math.rad(S.AntiAimYaw)
@@ -2618,4 +2720,4 @@ UIS.InputBegan:Connect(function(input, gp)
 end)
 
 
-Notify("loaded v5.1 | "..#SearchItems.." funcs in "..#tabs.." tabs | K menu | search, collapse, RMB", 4, C.green)
+Notify("loaded v5.2 | "..#SearchItems.." funcs in "..#tabs.." tabs | K menu | search, collapse, RMB", 4, C.green)
