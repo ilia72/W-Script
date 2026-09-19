@@ -93,6 +93,17 @@ end
 local Gui = Instance.new("ScreenGui")
 Gui.Name="WScript_CFG" Gui.ResetOnSpawn=false Gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling Gui.Parent=guiParent
 
+-- Shared hover highlight for buttons/rows (executor-safe, plain tweens)
+local function hover(o, base, light)
+	base = base or C.elem light = light or C.off
+	o.MouseEnter:Connect(function()
+		if o.BackgroundColor3 == base then TweenService:Create(o, TweenInfo.new(0.12), {BackgroundColor3=light}):Play() end
+	end)
+	o.MouseLeave:Connect(function()
+		if o.BackgroundColor3 == light then TweenService:Create(o, TweenInfo.new(0.15), {BackgroundColor3=base}):Play() end
+	end)
+end
+
 -- =============================================================================
 -- NOTIFY
 -- =============================================================================
@@ -753,6 +764,7 @@ end
 local Main = Instance.new("Frame", Gui)
 Main.Size=UDim2.new(0,620,0,480) Main.Position=UDim2.new(0.5,-310,0.5,-240)
 Main.BackgroundColor3=C.bg Main.BorderSizePixel=0 Main.Active=true Main.ClipsDescendants=true corner(Main,10)
+local MainStroke=Instance.new("UIStroke",Main) MainStroke.Color=C.off MainStroke.Thickness=1 MainStroke.Transparency=0.35
 
 local noise=Instance.new("ImageLabel",Main)
 noise.Size=UDim2.new(1,0,1,0) noise.BackgroundTransparency=1 noise.ImageTransparency=0.92
@@ -760,6 +772,8 @@ noise.ScaleType=Enum.ScaleType.Tile noise.TileSize=UDim2.new(0,48,0,48) noise.Im
 
 local Top=Instance.new("Frame",Main)
 Top.Size=UDim2.new(1,0,0,36) Top.BackgroundColor3=C.panel Top.BorderSizePixel=0 corner(Top,10) drag(Main,Top)
+local TopLine=Instance.new("Frame",Top)
+TopLine.Size=UDim2.new(1,0,0,1) TopLine.Position=UDim2.new(0,0,1,-1) TopLine.BorderSizePixel=0 markAccent(TopLine,"BackgroundColor3")
 
 -- Avatar
 local AvatarFrame = Instance.new("Frame", Top)
@@ -777,7 +791,7 @@ corner(AvatarImg, 6)
 
 local Title=Instance.new("TextLabel",Top)
 Title.Size=UDim2.new(1,-80,1,0) Title.Position=UDim2.new(0, 42, 0, 0) Title.BackgroundTransparency=1
-Title.Text="w-script  //  v4.0" Title.Font=Enum.Font.Code Title.TextSize=13 Title.TextColor3=C.dim Title.TextXAlignment=Enum.TextXAlignment.Left
+Title.RichText=true Title.Text='<font color="#6e82f0"><b>w-script</b></font>  //  v4.1' Title.Font=Enum.Font.Code Title.TextSize=13 Title.TextColor3=C.dim Title.TextXAlignment=Enum.TextXAlignment.Left
 
 local StatusDot = Instance.new("Frame", Top)
 StatusDot.Size = UDim2.new(0, 8, 0, 8)
@@ -788,11 +802,16 @@ corner(StatusDot, 4)
 local XBtn=Instance.new("TextButton",Top)
 XBtn.Size=UDim2.new(0,32,0,32) XBtn.Position=UDim2.new(1,-32,0,2) XBtn.BackgroundTransparency=1
 XBtn.Text="✕" XBtn.Font=Enum.Font.Code XBtn.TextSize=14 XBtn.TextColor3=C.dim XBtn.Modal=true
+XBtn.MouseEnter:Connect(function() TweenService:Create(XBtn,TweenInfo.new(0.12),{TextColor3=C.red}):Play() end)
+XBtn.MouseLeave:Connect(function() TweenService:Create(XBtn,TweenInfo.new(0.15),{TextColor3=C.dim}):Play() end)
 
 local Side=Instance.new("Frame",Main)
 Side.Size=UDim2.new(0,120,1,-36) Side.Position=UDim2.new(0,0,0,36) Side.BackgroundColor3=C.panel Side.BorderSizePixel=0
 corner(Side, 0)
 Instance.new("UIListLayout",Side).Padding=UDim.new(0,3)
+local SidePad=Instance.new("UIPadding",Side) SidePad.PaddingTop=UDim.new(0,4) SidePad.PaddingLeft=UDim.new(0,4) SidePad.PaddingRight=UDim.new(0,4)
+local SideLine=Instance.new("Frame",Side)
+SideLine.Size=UDim2.new(0,1,1,-8) SideLine.Position=UDim2.new(1,-1,0,4) SideLine.BackgroundColor3=C.off SideLine.BorderSizePixel=0 SideLine.BackgroundTransparency=0.4
 
 -- Profile section at top of sidebar
 local ProfileFrame = Instance.new("Frame", Side)
@@ -877,37 +896,53 @@ ProfileBtn.MouseButton1Click:Connect(function()
 end)
 
 local Content=Instance.new("Frame",Main)
-Content.BackgroundTransparency=1 Content.Position=UDim2.new(0,126,0,80) Content.Size=UDim2.new(1,-136,1,-88)
+Content.BackgroundTransparency=1 Content.Position=UDim2.new(0,128,0,44) Content.Size=UDim2.new(1,-138,1,-52)
 
 local tabs={}
+local function selectTab(t)
+	for _,x in ipairs(tabs) do
+		x.page.Visible=false
+		x.btn.BackgroundTransparency=1
+		x.btn.TextColor3=C.dim
+		if x.ind then x.ind.Visible=false end
+	end
+	t.page.Visible=true
+	TweenService:Create(t.btn, TweenInfo.new(0.15), {BackgroundTransparency=0.15}):Play()
+	TweenService:Create(t.btn, TweenInfo.new(0.15), {TextColor3=C.text}):Play()
+	if t.ind then t.ind.Visible=true end
+end
 local function makeTab(name)
 	local btn=Instance.new("TextButton",Side)
-	btn.Size=UDim2.new(1,-8,0,30) btn.Position=UDim2.new(0,4,0,0)
-	btn.BackgroundColor3=C.elem btn.BackgroundTransparency=1 btn.BorderSizePixel=0
+	btn.Size=UDim2.new(1,0,0,30) btn.Position=UDim2.new(0,4,0,0)
+	btn.BackgroundColor3=C.elem btn.BackgroundTransparency=1 btn.BorderSizePixel=0 btn.AutoButtonColor=false
 	btn.Text="  "..name btn.Font=Enum.Font.Code btn.TextSize=12 btn.TextColor3=C.dim btn.TextXAlignment=Enum.TextXAlignment.Left corner(btn,5)
+	local ind=Instance.new("Frame",btn)
+	ind.Size=UDim2.new(0,3,0,16) ind.Position=UDim2.new(0,3,0.5,-8) ind.BorderSizePixel=0 ind.Visible=false corner(ind,2) markAccent(ind,"BackgroundColor3")
 	local page=Instance.new("ScrollingFrame",Content)
 	page.Size=UDim2.new(1,0,1,0) page.BackgroundTransparency=1 page.BorderSizePixel=0
-	page.ScrollBarThickness=3 page.ScrollBarImageColor3=C.off
+	page.ScrollBarThickness=4 page.ScrollBarImageColor3=C.accent page.ScrollBarImageTransparency=0.4
+	markAccent(page,"ScrollBarImageColor3")
 	page.AutomaticCanvasSize=Enum.AutomaticSize.Y page.CanvasSize=UDim2.new() page.Visible=false
 	Instance.new("UIListLayout",page).Padding=UDim.new(0,4)
-	local t={btn=btn,page=page} table.insert(tabs,t)
-	btn.MouseButton1Click:Connect(function()
-		for _,x in ipairs(tabs) do 
-			x.page.Visible=false 
-			x.btn.BackgroundTransparency=1 
-			x.btn.TextColor3=C.dim 
-		end
-		page.Visible=true 
-		TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundTransparency=0.15}):Play()
-		TweenService:Create(btn, TweenInfo.new(0.15), {TextColor3=C.text}):Play()
+	local PagePad=Instance.new("UIPadding",page) PagePad.PaddingRight=UDim.new(0,6) PagePad.PaddingTop=UDim.new(0,2)
+	local t={btn=btn,page=page,ind=ind} table.insert(tabs,t)
+	btn.MouseEnter:Connect(function()
+		if page.Visible then return end
+		TweenService:Create(btn,TweenInfo.new(0.12),{BackgroundTransparency=0.55, TextColor3=C.text}):Play()
 	end)
+	btn.MouseLeave:Connect(function()
+		if page.Visible then return end
+		TweenService:Create(btn,TweenInfo.new(0.15),{BackgroundTransparency=1, TextColor3=C.dim}):Play()
+	end)
+	btn.MouseButton1Click:Connect(function() selectTab(t) end)
 	return t
 end
 
 local function section(tab, text)
-	local f=Instance.new("Frame",tab.page) f.Size=UDim2.new(1,-4,0,18) f.BackgroundTransparency=1
-	local l=Instance.new("TextLabel",f) l.Size=UDim2.new(1,0,1,0) l.BackgroundTransparency=1
-	l.Text="— "..text l.Font=Enum.Font.Code l.TextSize=11 l.TextColor3=C.dim l.TextXAlignment=Enum.TextXAlignment.Left
+	local f=Instance.new("Frame",tab.page) f.Size=UDim2.new(1,-4,0,20) f.BackgroundTransparency=1
+	local bar=Instance.new("Frame",f) bar.Size=UDim2.new(0,3,0,12) bar.Position=UDim2.new(0,2,0.5,-6) bar.BorderSizePixel=0 corner(bar,2) markAccent(bar,"BackgroundColor3")
+	local l=Instance.new("TextLabel",f) l.Size=UDim2.new(1,-12,1,0) l.Position=UDim2.new(0,10,0,0) l.BackgroundTransparency=1
+	l.Text=text:upper() l.Font=Enum.Font.Code l.TextSize=11 l.TextColor3=C.text l.TextTransparency=0.25 l.TextXAlignment=Enum.TextXAlignment.Left
 end
 
 local Ctx = Instance.new("Frame", Gui)
@@ -921,8 +956,9 @@ local function hideCtx() Ctx.Visible=false end
 
 local function ctxBtn(text, fn)
 	local b=Instance.new("TextButton",Ctx)
-	b.Size=UDim2.new(1,0,0,26) b.BackgroundColor3=C.elem b.BorderSizePixel=0
+	b.Size=UDim2.new(1,0,0,26) b.BackgroundColor3=C.elem b.BorderSizePixel=0 b.AutoButtonColor=false
 	b.Text=text b.Font=Enum.Font.Code b.TextSize=12 b.TextColor3=C.text corner(b,4)
+	hover(b)
 	b.MouseButton1Click:Connect(function() fn() hideCtx() end)
 end
 
@@ -1118,6 +1154,7 @@ waitingFeatBind=nil
 local function Toggle(tab, label, id, default, onSet)
 	local f=Instance.new("Frame",tab.page)
 	f.Size=UDim2.new(1,-4,0,28) f.BackgroundColor3=C.elem f.BorderSizePixel=0 corner(f,5)
+	local fst=Instance.new("UIStroke",f) fst.Color=C.off fst.Thickness=1 fst.Transparency=0.6
 	local l=Instance.new("TextLabel",f)
 	l.BackgroundTransparency=1 l.Position=UDim2.new(0,10,0,0) l.Size=UDim2.new(1,-50,1,0)
 	l.Font=Enum.Font.Code l.TextSize=12 l.TextColor3=C.text l.TextXAlignment=Enum.TextXAlignment.Left l.Text=label
@@ -1144,8 +1181,14 @@ local function Toggle(tab, label, id, default, onSet)
 	end
 	if id then Registry.Toggles[id]={set=apply,get=function() return state end} end
 	sw.MouseButton1Click:Connect(function() apply(not state,false) end)
+	-- whole row (except switch) also toggles on click; RMB still opens customize.
+	-- bounds check avoids double-toggle when the click hits the switch itself.
 	f.InputBegan:Connect(function(input)
-		if input.UserInputType==Enum.UserInputType.MouseButton2 then openCustomize(id or label, label, f) end
+		if input.UserInputType==Enum.UserInputType.MouseButton2 then openCustomize(id or label, label, f) return end
+		if input.UserInputType~=Enum.UserInputType.MouseButton1 then return end
+		local p=input.Position local pos=sw.AbsolutePosition local sz=sw.AbsoluteSize
+		if p.X>=pos.X-8 and p.X<=pos.X+sz.X+8 and p.Y>=pos.Y-8 and p.Y<=pos.Y+sz.Y+8 then return end
+		apply(not state,false)
 	end)
 	if default then task.defer(function() apply(true,false) end) end
 end
@@ -1153,6 +1196,7 @@ end
 local function Slider(tab, label, min, max, default, cb)
 	local f=Instance.new("Frame",tab.page)
 	f.Size=UDim2.new(1,-4,0,40) f.BackgroundColor3=C.elem f.BorderSizePixel=0 corner(f,5)
+	local fst=Instance.new("UIStroke",f) fst.Color=C.off fst.Thickness=1 fst.Transparency=0.6
 	local l=Instance.new("TextLabel",f) l.BackgroundTransparency=1 l.Position=UDim2.new(0,10,0,3) l.Size=UDim2.new(1,-60,0,16)
 	l.Font=Enum.Font.Code l.TextSize=11 l.TextColor3=C.text l.TextXAlignment=Enum.TextXAlignment.Left l.Text=label
 	local v=Instance.new("TextLabel",f) v.BackgroundTransparency=1 v.Position=UDim2.new(1,-50,0,3) v.Size=UDim2.new(0,42,0,16)
@@ -1172,14 +1216,18 @@ end
 
 local function Btn(tab, label, cb)
 	local b=Instance.new("TextButton",tab.page)
-	b.Size=UDim2.new(1,-4,0,28) b.BackgroundColor3=C.elem b.BorderSizePixel=0
+	b.Size=UDim2.new(1,-4,0,28) b.BackgroundColor3=C.elem b.BorderSizePixel=0 b.AutoButtonColor=false
 	b.Text=label b.Font=Enum.Font.Code b.TextSize=12 b.TextColor3=C.text corner(b,5)
+	hover(b)
+	b.MouseEnter:Connect(function() TweenService:Create(b,TweenInfo.new(0.12),{TextColor3=C.accent}):Play() end)
+	b.MouseLeave:Connect(function() TweenService:Create(b,TweenInfo.new(0.15),{TextColor3=C.text}):Play() end)
 	b.MouseButton1Click:Connect(cb)
 end
 
 local function BindRow(tab, label, id)
 	local b=Instance.new("TextButton",tab.page)
-	b.Size=UDim2.new(1,-4,0,28) b.BackgroundColor3=C.elem b.BorderSizePixel=0 b.Font=Enum.Font.Code b.TextSize=12 b.TextColor3=C.text corner(b,5)
+	b.Size=UDim2.new(1,-4,0,28) b.BackgroundColor3=C.elem b.BorderSizePixel=0 b.AutoButtonColor=false b.Font=Enum.Font.Code b.TextSize=12 b.TextColor3=C.text corner(b,5)
+	hover(b)
 	local function refresh()
 		local k = (Feat[id] and Feat[id].bind) or Registry.Binds[id]
 		b.Text=string.format("%s   [%s]", label, k and tostring(k):gsub("Enum.KeyCode.","") or "NONE")
@@ -1458,7 +1506,7 @@ Btn(tUtil,"activate nearby prompts", activatePickups)
 Toggle(tUtil,"vehicle boost","VehicleBoost",false,function(v) S.VehicleBoost=v end)
 Slider(tUtil,"vehicle boost",20,400,100,function(v) S.VehicleBoostVal=v end)
 
-tabs[1].page.Visible=true tabs[1].btn.BackgroundTransparency=0.15 tabs[1].btn.TextColor3=C.text
+if tabs[1] then selectTab(tabs[1]) end
 
 -- =============================================================================
 -- LOADER MENU (config load/save/delete GUI)
